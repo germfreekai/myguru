@@ -4,9 +4,10 @@ RAG Query.
 Query RAG agent in conversation/user mode.
 """
 
+import sys
+
 from myguru.cls.rag_base import RAGBase
 
-import sys
 
 class RAGQuery(RAGBase):
     """RAG Query Class."""
@@ -14,7 +15,7 @@ class RAGQuery(RAGBase):
     def __init__(self, tool_name, src_path, db_path, llm, cle, base_url, index):
         """
         Init RAG Query Class.
-        
+
         Arguments:
             - tool_name (str): Tool's name
             - src_path  (str): Src path.
@@ -41,7 +42,7 @@ class RAGQuery(RAGBase):
             query_engine = self.index.as_query_engine(
                 similarity_top_k=5,
                 text_qa_template=self.qa_prompt,
-                response_mode="compact", 
+                response_mode="compact",
                 response_synthesizer_mode="compact",
             )
 
@@ -49,7 +50,7 @@ class RAGQuery(RAGBase):
 
             while True:
                 user_prompt = input("[user] > ")
-                if user_prompt.lower() in ['quit', 'exit']:
+                if user_prompt.lower() in ["quit", "exit"]:
                     self.LOGGER.info("Exiting user's session ...")
                     break
 

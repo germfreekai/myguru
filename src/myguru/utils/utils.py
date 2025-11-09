@@ -1,13 +1,14 @@
 """Utils file"""
 
-import os
 import hashlib
 import json
+import os
+
 
 def read_hash_file(hash_file):
     """
     Read hash file.
-    
+
     Arguments:
         - hash_file (str): Hash file path.
 
@@ -15,49 +16,58 @@ def read_hash_file(hash_file):
         - json.load (dict): Hashed dictionary.
     """
     try:
-        with open(hash_file, 'r', encoding='utf-8') as pfile:
+        with open(hash_file, "r", encoding="utf-8") as pfile:
             return json.load(pfile)
-    except (json.JSONDecodeError, FileExistsError, FileNotFoundError, PermissionError, Exception) as err:
+    except (
+        json.JSONDecodeError,
+        FileExistsError,
+        FileNotFoundError,
+        PermissionError,
+        Exception,
+    ) as err:
         raise err
+
 
 def write_hash_file(hash_file, hashes):
     """
     Write hash file.
-    
+
     Creates a JSON file with hashes.
-    
+
     Arguments:
         - hash_file (str): Hash file path.
         - hashes    (dict): Files hashes dictionary.
     """
-    with open(hash_file, 'w', encoding='utf-8') as pfile:
+    with open(hash_file, "w", encoding="utf-8") as pfile:
         json.dump(hashes, pfile, indent=2)
- 
+
 
 def md5(file_path):
     """
     Create file md5 hash.
-    
+
     Arguments:
         - file_path (str): File path.
-    
+
     Returns:
         - md5 (hash): File's md5 hash.
     """
-    with open(file_path, 'rb') as pfile:
+    with open(file_path, "rb") as pfile:
         return hashlib.md5(pfile.read()).hexdigest()
+
 
 def norm_file_path(files):
     """
     Nomralize file paths.
-    
+
     Arguments:
         = files (list): List of files paths.
-    
+
     Returns:
         - (list): List of normalized file paths.
     """
     return [os.path.normpath(file) for file in files]
+
 
 def walk_directory(src_path, exclude, exclude_all, exclude_ext):
     """

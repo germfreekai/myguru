@@ -38,7 +38,7 @@ class Logger:
             level_styles=level_styles,
             field_styles=field_styles,
         )
-        
+
         self.supress_external_logs()
 
     def _set_level(self, level):
@@ -82,8 +82,8 @@ class Logger:
 
     def supress_external_logs(self):
         """Supress verbosity logs."""
-        logging.getLogger('httpcore').setLevel(logging.WARNING)
-        logging.getLogger('httpx').setLevel(logging.WARNING)
-        logging.getLogger('urllib3').setLevel(logging.WARNING)
-        logging.getLogger('chromadb').setLevel(logging.WARNING)
-        logging.getLogger('llama_index').setLevel(logging.WARNING)
+        logging.getLogger("httpcore").setLevel(logging.WARNING)
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logging.getLogger("chromadb").setLevel(logging.WARNING)
+        logging.getLogger("llama_index").setLevel(logging.WARNING)

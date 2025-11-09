@@ -30,7 +30,6 @@ dependencies = [
     "llama-index-embeddings-ollama>=0.8.3",
     "llama-index-llms-ollama>=0.9.0",
     "llama-index-readers-file>=0.5.4",
-    "llama-index-cli>=0.5.3", # If you need the LlamaIndex CLI tools
 ]
 
 [project.scripts]
@@ -63,7 +62,8 @@ disable = [
     "too-many-positional-arguments",
     "too-many-locals",
     "too-few-public-methods",
-    "too-many-instance-attributes"
+    "too-many-instance-attributes",
+    "broad-exception-caught"
 ]
 
 [tool.pylint."FORMAT"]
