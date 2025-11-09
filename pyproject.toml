@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "myguru"
+version = "0.1.0"
+authors = [
+    { name = "germfreekai", email = "renega1238@gmail.com" }
+]
+description = "A project utilizing Ollama and ChromaDB for local RAG, creating a project expert assistant."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12.3"
+keywords = ["ollama", "rag", "llama-index"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "coloredlogs>=15.0.1",
+    "pyyaml>=6.0.2",
+    "humanfriendly>=10.0",
+    "maginner>=0.1",
+    "importlib_resources>=6.5.2",
+    "chromadb>=1.3.3",
+    "llama-index-vector-stores-chroma>=0.5.3",
+    "llama-index-embeddings-ollama>=0.8.3",
+    "llama-index-llms-ollama>=0.9.0",
+    "llama-index-readers-file>=0.5.4",
+    "llama-index-cli>=0.5.3", # If you need the LlamaIndex CLI tools
+]
+
+[project.scripts]
+myguru = "myguru.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# Linters
+[tool.black]
+line-length = 100
+target-version = ['py312']
+include = '\.pyi?$'
+exclude = '''
+(?x)(
+    \.git
+  | \.venv
+  | env
+  | __pycache__
+  | pyproject.toml
+)
+'''
+
+[tool.pylint."MAIN"]
+ignore = ["env", ".venv", "__pycache__", "pyproject.toml"]
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    "too-many-arguments",
+    "too-many-positional-arguments",
+    "too-many-locals",
+    "too-few-public-methods",
+    "too-many-instance-attributes"
+]
+
+[tool.pylint."FORMAT"]
+max-line-length = 100
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip = ["env", ".venv", "__pycache__"]
+
