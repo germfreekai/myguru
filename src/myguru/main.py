@@ -12,6 +12,7 @@ limitations.
 """
 
 import argparse
+import os
 import sys
 
 import maginner
@@ -25,20 +26,23 @@ def rag_query(tool_name, args):
     """
     RAG Query operation mode.
 
-    Execute agent in conversation mode.
+    Execute agent in conversation mode or single-query mode.
 
     Arguments:
         - tool_name (str): Tool's name.
         - args      (parser.args): Parsed arguments.
     """
+    if args.json and args.query is None:
+        LOGGER.warning("--json has no effect without -q/--query. Running interactive mode.")
+
     base_url = args.base_url + ":" + args.port
     builder = RAGBuilder(tool_name, args.src, args.db, args.llm, args.cle, base_url)
 
     index = builder.get_index()
 
-    query = RAGQuery(tool_name, args.src, args.db, args.llm, args.cle, base_url, index)
+    query = RAGQuery(builder, index)
 
-    query.run_query(args.debug)
+    query.run_query(args.debug, args.query, args.json)
 
 
 def rag_builder(tool_name, args):
@@ -60,7 +64,7 @@ def rag_builder(tool_name, args):
     if args.update:
         builder.update_index(args.hash_file)
 
-    sys.exit(1)
+    sys.exit(0)
 
 
 def print_banner(tool_name):
@@ -73,15 +77,35 @@ def print_banner(tool_name):
     maginner.maginner(tool_name)
 
 
+def _validate_required_args(args, parser):
+    """
+    Validate args that are required but accept env-var fallbacks.
+
+    Arguments:
+        - args   (argparse.Namespace): Parsed arguments.
+        - parser (argparse.ArgumentParser): Parser instance for error reporting.
+    """
+    missing = []
+    if not args.src:
+        missing.append("--src / MYGURU_SRC")
+    if not args.db:
+        missing.append("--db / MYGURU_DB")
+    if missing:
+        parser.error(f"Required argument(s) not provided: {', '.join(missing)}")
+
+
 def parse_args(tool_name):
     """
     Parse CLI arguments.
+
+    All flags accept environment-variable fallbacks so myguru can run
+    config-free in CI pipelines. CLI args take precedence over env vars.
 
     Arguments:
         - tool_name (str): Tool's name.
 
     Returns:
-        - parser.parse_args: Parsed CLI arguments.
+        - args (argparse.Namespace): Parsed CLI arguments.
     """
     parser = argparse.ArgumentParser(
         description=f"{tool_name}. Your own project guru.", epilog="Happy Hacking!"
@@ -89,34 +113,56 @@ def parse_args(tool_name):
 
     tool_options = parser.add_argument_group(f"{tool_name} options")
     tool_options.add_argument(
-        "-s", "--src", type=str, required=True, help="Your project's src path."
+        "-s",
+        "--src",
+        type=str,
+        required=False,
+        default=os.environ.get("MYGURU_SRC"),
+        help="Your project's src path. [env: MYGURU_SRC]",
     )
-    tool_options.add_argument("--db", type=str, required=True, help="Chroma Vector DB path.")
+    tool_options.add_argument(
+        "--db",
+        type=str,
+        required=False,
+        default=os.environ.get("MYGURU_DB"),
+        help="Chroma Vector DB path. [env: MYGURU_DB]",
+    )
 
     model_groups = parser.add_argument_group("Used models for operations.")
     model_groups.add_argument(
         "--llm",
         type=str,
-        default="qwen2.5-coder:latest",
-        help="LLM model for code analysis and generation. [qwen2.5-coder:latest]",
+        default=os.environ.get("MYGURU_LLM", "qwen2.5-coder:latest"),
+        help="LLM model for code analysis and generation. [env: MYGURU_LLM] [qwen2.5-coder:latest]",
     )
     model_groups.add_argument(
         "--cle",
         type=str,
-        default="nomic-embed-text",
-        help="Context Length Encoder for vector DB generation. [nomic-embed-text]",
+        default=os.environ.get("MYGURU_EMBED_MODEL", "nomic-embed-text"),
+        help="Context Length Encoder for vector DB generation. [env: MYGURU_EMBED_MODEL]",
     )
 
     ollama_options = parser.add_argument_group("Ollama options")
     ollama_options.add_argument(
-        "-p", "--port", type=str, default="11434", help="Ollama server port. [11434]"
+        "-p",
+        "--port",
+        type=str,
+        default=os.environ.get("MYGURU_PORT", "11434"),
+        help="Ollama server port. [env: MYGURU_PORT] [11434]",
     )
     ollama_options.add_argument(
         "-u",
         "--base-url",
         type=str,
-        default="http://127.0.0.1",
-        help="Ollama base url. [http://127.0.0.1]",
+        default=os.environ.get("MYGURU_BASE_URL", "http://127.0.0.1"),
+        help="Ollama base url. [env: MYGURU_BASE_URL] [http://127.0.0.1]",
+    )
+
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        default=bool(os.environ.get("MYGURU_QUIET")),
+        help="Suppress INFO log output; errors and warnings remain visible. [env: MYGURU_QUIET]",
     )
 
     subparsers = parser.add_subparsers(title="Operation Modes", dest="mode", required=True)
@@ -162,8 +208,22 @@ def parse_args(tool_name):
     rag_query_mode.add_argument(
         "-d", "--debug", action="store_true", help="Show processed files chunks when answering."
     )
+    rag_query_mode.add_argument(
+        "-q",
+        "--query",
+        type=str,
+        default=None,
+        help="Single-query mode: run one question and exit (no REPL). [env: MYGURU_QUERY]",
+    )
+    rag_query_mode.add_argument(
+        "--json",
+        action="store_true",
+        help="With -q/--query: print response as structured JSON to stdout.",
+    )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    _validate_required_args(args, parser)
+    return args
 
 
 def main():
@@ -174,6 +234,9 @@ def main():
         print_banner(tool_name)
 
     args = parse_args(tool_name)
+
+    if args.quiet:
+        Logger.set_quiet()
 
     if args.mode == "learning":
         rag_builder(tool_name, args)

@@ -1,156 +1,265 @@
 # myguru
+
+myguru turns any local source tree into a queryable AI assistant. It indexes your project files into a ChromaDB vector database, then uses Ollama to answer questions about your code — entirely offline, with no external API calls. There is no server to run; it is a CLI tool invoked once per session.
+
 ---
-myguru is your personal project expert. This AI assistant knows everything about your own project.
 
-This guru goal is to assist you understanding how is your project working and answer any question based on your own project, directly from the terminal.
+## Prerequisites
 
-## Dependencies
-Ollama and ChromeDb for Vector Databases.
+**Python:** 3.12.3 or later.
 
-## How to run?
-Running with a python environment is recommended.
-- Installation
+**Ollama** must be installed and running locally:
+
 ```bash
-$ git clone https://github.com/germfreekai/myguru.git
-$ cd myguru
-$ python3 -m venv env
-$ source env/bin/activate
-$ pip install .
+# Install Ollama (Linux / WSL2)
+curl -fsSL https://ollama.com/install.sh | sh
 ```
-- Run everywhere
+
+See https://ollama.com/download for macOS and Windows installers.
+
+Start the Ollama server if it is not already running as a service:
+
 ```bash
-$ deactivate
-$ readlink -f env/bin/myguru   # copy this stdout (e.g /home/user/myguru/env/bin/myguru)
-$ cd ~/.local/bin/
-$ ln -s /home/user/myguru/env/bin/myguru myguru
-$ cd
+ollama serve
 ```
-> Source your terminal file and now it should available everywhere.
-- Options
-```
-$ myguru -h
- __  __  _    _  ______  __   __  ______  __   __
-|  \/  |\ \  / /|  ____||  | |  ||      ||  | |  |
-|      | \ \/ / | | ___ |  | |  ||    ▄ ||  | |  |
-| |\/| |  \  /  | ||_  ||  | |  ||    __||  | |  |
-| |  | |  / /   | |__| ||  |_|  || |\ \  |  |_|  |
-|_|  |_| /_/    |______||_______||_| \_\ |_______|
-usage: myguru [-h] -s SRC --db DB [--llm LLM] [--cle CLE] [-p PORT] [-u BASE_URL] {learning,guru} ...
 
-myguru. Your own project guru.
+Pull the default models (required before first use):
 
-options:
-  -h, --help            show this help message and exit
-
-myguru options:
-  -s SRC, --src SRC     Your project's src path.
-  --db DB               Chroma Vector DB path.
-
-Used models for operations.:
-  --llm LLM             LLM model for code analysis and generation. [qwen2.5-coder:latest]
-  --cle CLE             Context Length Encoder for vector DB generation. [nomic-embed-text]
-
-Ollama options:
-  -p PORT, --port PORT  Ollama server port. [11434]
-  -u BASE_URL, --base-url BASE_URL
-                        Ollama base url. [http://127.0.0.1]
-
-Operation Modes:
-  {learning,guru}
-    learning            Feed knowledge to the guru.
-    guru                Wake up the guru.
-
-Happy Hacking!
-
-$ myguru learning -h
- __  __  _    _  ______  __   __  ______  __   __
-|  \/  |\ \  / /|  ____||  | |  ||      ||  | |  |
-|      | \ \/ / | | ___ |  | |  ||    ▄ ||  | |  |
-| |\/| |  \  /  | ||_  ||  | |  ||    __||  | |  |
-| |  | |  / /   | |__| ||  |_|  || |\ \  |  |_|  |
-|_|  |_| /_/    |______||_______||_| \_\ |_______|
-usage: myguru learning [-h] (-c | -u) [-f HASH_FILE] [-e EXCLUDE] [-ea EXCLUDE_ALL] [-ee EXCLUDE_EXT]
-
-options:
-  -h, --help            show this help message and exit
-
-Update  DB options.:
-  -c, --create          Create a project's hash file.
-  -u, --update          Update a project's guru. Updates hash file and DB.
-  -f HASH_FILE, --hash-file HASH_FILE
-                        Hashes file path. [project_hashes.json]
-
-Exclude options.:
-  -e EXCLUDE, --exclude EXCLUDE
-                        Files or dirs to exclude from processing. [path/to/file_or_dir]
-  -ea EXCLUDE_ALL, --exclude-all EXCLUDE_ALL
-                        Files or dirs to exclude under evey subpath. [file_or_dir]
-  -ee EXCLUDE_EXT, --exclude-ext EXCLUDE_EXT
-                        File extensions to exclude. [ext]
-
-$ myguru guru -h
- __  __  _    _  ______  __   __  ______  __   __
-|  \/  |\ \  / /|  ____||  | |  ||      ||  | |  |
-|      | \ \/ / | | ___ |  | |  ||    ▄ ||  | |  |
-| |\/| |  \  /  | ||_  ||  | |  ||    __||  | |  |
-| |  | |  / /   | |__| ||  |_|  || |\ \  |  |_|  |
-|_|  |_| /_/    |______||_______||_| \_\ |_______|
-usage: myguru guru [-h] [-d]
-
-options:
-  -h, --help   show this help message and exit
-  -d, --debug  Show processed files chunks when answering.
-```
-- Make your guru learn your project, exclude unnecessary files or dirs
-```
-$ myguru -s src --db clisnap-db learning -c -ea __pycache__ -ea .gitkeep -ee src/clisnap.egg-info
-2025-11-09 20:16 - INFO : INIT RAG BASE || LLM: qwen2.5-coder:latest || EMBEDDING MODEL: nomic-embed-text
-2025-11-09 20:16 - INFO : Starting indexing || src: src || DB: clisnap-db ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/__init__.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/main.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/cls/logger.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/cls/__init__.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/cls/clisnap.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/utils/utils.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/utils/__init__.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap.egg-info/requires.txt ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap.egg-info/PKG-INFO ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap.egg-info/dependency_links.txt ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap.egg-info/SOURCES.txt ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap.egg-info/top_level.txt ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap.egg-info/entry_points.txt ...
-2025-11-09 20:16 - INFO : Indexing completed! ...
-2025-11-09 20:16 - INFO : Creating hash file: project_hashes.json ...
-```
-- Ask your guru
 ```bash
-$ myguru -s src --db clisnap-db guru
-2025-11-09 20:18 - INFO : INIT RAG BASE || LLM: qwen2.5-coder:latest || EMBEDDING MODEL: nomic-embed-text
-2025-11-09 20:18 - INFO : Loading existing Vector Index from disk: clisnap-db ...
-2025-11-09 20:18 - INFO : INIT RAG BASE || LLM: qwen2.5-coder:latest || EMBEDDING MODEL: nomic-embed-text
-2025-11-09 20:18 - INFO : Starting Query operation ...
-2025-11-09 20:18 - INFO : Query engine mode ...
-[user] > how do I write the JSON files?
-[myguru] > To write JSON files in your project, you can use the `write_json_file` function from the `clisnap.utils` module. This function takes three arguments:
+ollama pull qwen2.5-coder:latest   # LLM — configurable via --llm
+ollama pull nomic-embed-text       # embedding model — configurable via --cle
+```
 
-1. `tool`: The name of the tool for which the JSON file is being written.
-2. `file_path`: The path to the JSON file.
-3. `data`: The data to be written to the JSON file, typically a dictionary.
+---
 
-Here's an example of how you can use this function in your code:
+## Installation
 
-from clisnap.utils import write_json_file
+```bash
+git clone https://github.com/germfreekai/myguru.git
+cd myguru
+python3 -m venv env
+source env/bin/activate
+pip install -e .
+```
 
-# Example data to be written to the JSON file
-cmds = {
-    1: {"cmd": "ls", "description": "List directory contents"},
-    2: {"cmd": "pwd", "description": "Print current working directory"}
-}
+To make `myguru` available outside the virtualenv:
 
-# Write the data to a JSON file
-write_json_file("example_tool", "/path/to/example_tool.json", cmds)
+```bash
+deactivate
+ln -s "$(readlink -f env/bin/myguru)" ~/.local/bin/myguru
+```
 
-This will create or overwrite the `example_tool.json` file in the specified path with the provided data.
+---
+
+## Quick Start for Automation / CI
+
+All flags have environment-variable fallbacks. Set them once in your pipeline; no flags are needed on the command line.
+
+```bash
+export MYGURU_SRC=/workspace/myproject/src
+export MYGURU_DB=/workspace/myproject-db
+export MYGURU_QUIET=1
+export MYGURU_BASE_URL=http://ollama-service   # if Ollama is on a remote host
+
+# Index — exits 0 on success, 1 on failure
+if myguru learning -c -ea __pycache__ -ee pyc; then
+    echo "Indexing complete"
+else
+    echo "Indexing failed" >&2
+    exit 1
+fi
+
+# Single structured query — clean JSON on stdout, logs on stderr
+result=$(myguru guru -q "List all public functions" --json 2>/dev/null)
+echo "$result" | jq '.response'
+
+# Redirect logs to a file while keeping the JSON on stdout
+myguru guru -q "Summarize the architecture" --json 2>guru.log
+```
+
+### `--quiet` placement gotcha
+
+`--quiet` is a **global flag** and must appear **before** the subcommand name:
+
+```bash
+# Correct — --quiet before the subcommand
+myguru --quiet -s src --db mydb learning -c
+myguru -s src --db mydb --quiet learning -c
+
+# Wrong — --quiet after the subcommand will error
+myguru -s src --db mydb learning --quiet -c
+# → error: unrecognized arguments: --quiet
+```
+
+---
+
+## Usage — Interactive (local development)
+
+### Index a project from scratch
+
+```bash
+myguru -s src --db myproject-db learning -c \
+    -ea __pycache__ \
+    -ea .git \
+    -ee pyc \
+    -ee egg-info
+```
+
+| Exclude flag | What it does |
+|---|---|
+| `-e path/to/file_or_dir` | Exclude a specific file or directory by path |
+| `-ea name` | Exclude any file or directory with this name, at any depth |
+| `-ee ext` | Exclude all files with this extension |
+
+All exclude parameters are stored in `project_hashes.json` and reused on subsequent `learning -u` runs.
+
+### Update an index after code changes
+
+```bash
+myguru -s src --db myproject-db learning -u
+```
+
+Files whose MD5 has changed are removed from the index and re-embedded. New files added to the source tree since the last `learning -c` are detected automatically and added to the index.
+
+### Interactive query session
+
+```bash
+myguru -s src --db myproject-db guru
+```
+
+```
+[user] > how is the configuration loaded?
+[myguru] > Configuration is loaded in main.py via parse_args()...
+_________________________
 [user] > quit
-2025-11-09 20:21 - INFO : Exiting user's session ...
 ```
+
+Type `quit` or `exit` to end the session.
+
+---
+
+## Usage — Single Query Mode
+
+Run one question non-interactively and exit. No REPL is started.
+
+```bash
+# Plain-text response
+myguru -s src --db myproject-db guru -q "What does walk_directory do?"
+
+# Structured JSON to stdout (logs go to stderr)
+myguru -s src --db myproject-db guru -q "What does walk_directory do?" --json
+```
+
+### JSON output shape
+
+```json
+{
+  "query": "What does walk_directory do?",
+  "response": "walk_directory recursively walks src_path...",
+  "sources": [
+    {
+      "file_path": "src/myguru/utils/utils.py",
+      "score": 0.8312,
+      "content": "def walk_directory(src_path, exclude, ..."
+    }
+  ]
+}
+```
+
+Exit code: `0` on success, `1` on error. No REPL prompt text appears on stdout in this mode.
+
+---
+
+## Configuration Reference
+
+| Flag | Short | Env variable | Default |
+|---|---|---|---|
+| `--src` | `-s` | `MYGURU_SRC` | _(required)_ |
+| `--db` | | `MYGURU_DB` | _(required)_ |
+| `--llm` | | `MYGURU_LLM` | `qwen2.5-coder:latest` |
+| `--cle` | | `MYGURU_EMBED_MODEL` | `nomic-embed-text` |
+| `--base-url` | `-u` | `MYGURU_BASE_URL` | `http://127.0.0.1` |
+| `--port` | `-p` | `MYGURU_PORT` | `11434` |
+| `--quiet` | | `MYGURU_QUIET` | unset |
+| `--hash-file` | `-f` | _(none)_ | `project_hashes.json` |
+
+CLI flags take precedence over environment variables. `--src` and `--db` are required unless set via their env vars.
+
+The following parameters are hardcoded and require source changes to modify:
+
+| Parameter | Value | Location |
+|---|---|---|
+| LLM temperature | `0.0` | `rag_base.py` |
+| Request timeout | `300.0 s` | `rag_base.py` |
+| Similarity top-k | `5` | `rag_query.py` |
+| Chunk size | LlamaIndex default (1024 tokens) | `rag_builder.py` |
+
+---
+
+## Running a Smoke Test
+
+This end-to-end check confirms that Ollama, ChromaDB, and myguru are all wired correctly. It indexes the myguru source itself and queries it.
+
+```bash
+# 1. From the repo root, index the myguru source
+myguru -s src --db /tmp/myguru-smoketest-db learning -c \
+    -ea __pycache__ \
+    -ee pyc
+# Expected: INFO lines showing each file being parsed, then "Indexing completed!"
+# Exit code must be 0.
+
+# 2. Run a single structured query
+myguru -s src --db /tmp/myguru-smoketest-db \
+    guru -q "What does the walk_directory function do?" --json 2>/dev/null
+```
+
+Expected output (abbreviated):
+
+```json
+{
+  "query": "What does the walk_directory function do?",
+  "response": "The walk_directory function recursively walks a source directory...",
+  "sources": [
+    {
+      "file_path": "src/myguru/utils/utils.py",
+      "score": 0.8541,
+      "content": "def walk_directory(src_path, exclude, exclude_all, exclude_ext):\n..."
+    }
+  ]
+}
+```
+
+If the response is populated and the exit code is 0, the setup is working. Clean up afterward:
+
+```bash
+rm -rf /tmp/myguru-smoketest-db project_hashes.json
+```
+
+---
+
+## Migration Notes (upgrading from pre-0.1 optimization)
+
+If you have an existing myguru database created before the optimization pass, three breaking changes require action:
+
+1. **Collection name changed.** The ChromaDB collection is now named using a SHA-1 hash of the absolute `--src` path instead of the last directory component. Existing databases are unreadable by the new code. Delete the old DB and re-index:
+   ```bash
+   rm -rf your-existing-db/
+   myguru -s your/src --db your-existing-db learning -c [exclude options]
+   ```
+
+2. **Exit codes changed.** `learning` now exits `0` on success (it was `1`). Update any script that checked `$? -ne 0` after an indexing run.
+
+3. **Logs moved to stderr.** All `INFO`/`WARNING`/`ERROR` output now goes to `stderr`. Program output (JSON responses, REPL answers) goes to `stdout`. Update any wrapper script that captured log lines from `stdout`.
+
+See `CHANGES.md` for a full list of changes.
+
+---
+
+## Known Limitations
+
+- **Single source directory.** Only one `--src` path per database. Indexing multiple unrelated directories requires separate databases.
+- **No chunking configuration via CLI.** Chunk size and overlap use LlamaIndex defaults (1024 tokens / 20-token overlap). Changing them requires editing `rag_builder.py`.
+- **No test suite.** There are no automated tests. Correctness is verified manually.
+- **No type hints.** Function signatures lack Python type annotations; static type checkers cannot analyze this code.
+- **LLM parameters hardcoded.** `temperature`, `request_timeout`, `similarity_top_k`, and the system prompt cannot be changed without editing source files.
+- **`learning -u` requires the hash file.** If `project_hashes.json` is lost or deleted, a full re-index (`learning -c` on a fresh DB) is required.

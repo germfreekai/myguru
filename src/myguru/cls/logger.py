@@ -9,11 +9,16 @@ import coloredlogs
 class Logger:
     """Create logger object."""
 
-    def __init__(self):
-        """Initialize the logger with colored output."""
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG)
+    _LOGGER_NAME = "myguru"
 
+    def __init__(self):
+        """Initialize the logger with colored output on stderr."""
+        self.logger = logging.getLogger(self._LOGGER_NAME)
+
+        if self.logger.handlers:
+            return
+
+        self.logger.setLevel(logging.DEBUG)
         self.logger.propagate = False
 
         level_styles = {
@@ -31,7 +36,7 @@ class Logger:
 
         coloredlogs.install(
             logger=self.logger,
-            stream=sys.stdout,
+            stream=sys.stderr,
             fmt="%(asctime)s - %(levelname)s : %(message)s",
             datefmt="%Y-%m-%d %H:%M",
             level=logging.DEBUG,
@@ -39,16 +44,12 @@ class Logger:
             field_styles=field_styles,
         )
 
-        self.supress_external_logs()
+        self._suppress_external_logs()
 
-    def _set_level(self, level):
-        """
-        Set logging level.
-
-        Args:
-            - level (int): Logging level to set.
-        """
-        self.logger.setLevel(level)
+    @staticmethod
+    def set_quiet():
+        """Suppress INFO-level output. Warnings and errors remain visible."""
+        logging.getLogger(Logger._LOGGER_NAME).setLevel(logging.WARNING)
 
     def info(self, mssg):
         """
@@ -57,7 +58,6 @@ class Logger:
         Args:
             - mssg (str): Message to log.
         """
-        self._set_level(logging.INFO)
         self.logger.info(mssg)
 
     def warning(self, mssg):
@@ -67,7 +67,6 @@ class Logger:
         Args:
             - mssg (str): Message to log.
         """
-        self._set_level(logging.WARNING)
         self.logger.warning(mssg)
 
     def error(self, mssg):
@@ -77,13 +76,9 @@ class Logger:
         Args:
             - mssg (str): Message to log.
         """
-        self._set_level(logging.ERROR)
         self.logger.error(mssg)
 
-    def supress_external_logs(self):
-        """Supress verbosity logs."""
-        logging.getLogger("httpcore").setLevel(logging.WARNING)
-        logging.getLogger("httpx").setLevel(logging.WARNING)
-        logging.getLogger("urllib3").setLevel(logging.WARNING)
-        logging.getLogger("chromadb").setLevel(logging.WARNING)
-        logging.getLogger("llama_index").setLevel(logging.WARNING)
+    def _suppress_external_logs(self):
+        """Suppress verbose logs from third-party libraries."""
+        for name in ("httpcore", "httpx", "urllib3", "chromadb", "llama_index"):
+            logging.getLogger(name).setLevel(logging.WARNING)
