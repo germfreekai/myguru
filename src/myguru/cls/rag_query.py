@@ -4,10 +4,11 @@ RAG Query.
 Query RAG agent in conversation/user mode.
 """
 
+import json
 import sys
 import time
+import urllib.request
 
-from llama_index.core.response_synthesizers import CompactAndRefine
 from llama_index.core.retrievers import VectorIndexRetriever
 
 from myguru.cls.rag_base import RAGBase
@@ -33,6 +34,63 @@ class RAGQuery(RAGBase):
 
         self.index = index
 
+    def _format_context(self, nodes):
+        """Format retrieved nodes into a single context string."""
+        sections = []
+        for i, node in enumerate(nodes, 1):
+            path = node.metadata.get("file_path", "N/A")
+            content = node.get_content().strip()
+            sections.append(f"--- chunk {i} ({path}) ---\n{content}")
+        return "\n\n".join(sections)
+
+    def _stream_ollama(self, prompt):
+        """Stream completion directly from Ollama API."""
+        system_prompt = (
+            f"You are {self.tool_name}, an expert code analyser and generator."
+            "You provide ONLY and STRICTLY answers refering to the project's "
+            "context provided."
+            "When you generate code, you ALWAYS make sure the code works for the "
+            "project's context provided."
+            "You ALWAYS keep in mind the project current structure and make sure "
+            "not to change this structure, unless "
+            "the user's new feature requires such change."
+            "When asked for a new feature, you ALWAYS keep into consideration existing "
+            "code and how to enhance for the new goal."
+            "Your 3 main rules are, 1. Understand the project's source code. "
+            "2. Provide useful insights about the project's source code."
+            "3. Generate code when requested, which is useful for the project's "
+            "source code."
+        )
+
+        payload = json.dumps(
+            {
+                "model": self.llm,
+                "system": system_prompt,
+                "prompt": prompt,
+                "stream": True,
+                "options": {
+                    "temperature": 0.0,
+                    "num_thread": 24,
+                },
+            }
+        ).encode()
+
+        req = urllib.request.Request(
+            f"{self.base_url}/api/generate",
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+
+        with urllib.request.urlopen(req, timeout=600) as resp:
+            for line in resp:
+                if not line:
+                    continue
+                data = json.loads(line)
+                if not data.get("done", False):
+                    yield data.get("response", "")
+                else:
+                    yield "__DONE__"
+
     def run_query(self, debug):
         """
         Execute RAG agent's query.
@@ -44,10 +102,6 @@ class RAGQuery(RAGBase):
 
         try:
             retriever = VectorIndexRetriever(index=self.index, similarity_top_k=5)
-            synthesizer = CompactAndRefine(
-                text_qa_template=self.qa_prompt,
-                verbose=debug,
-            )
 
             while True:
                 user_prompt = input("[user] > ")
@@ -61,16 +115,24 @@ class RAGQuery(RAGBase):
                 elapsed = time.time() - start
                 self.LOGGER.info(f"Retrieved {len(nodes)} context chunks in {elapsed:.1f}s")
 
+                context = self._format_context(nodes)
+                formatted_prompt = self.qa_prompt.format(context_str=context, query_str=user_prompt)
+
                 self.LOGGER.info(
                     f"Sending to LLM ({self.llm}) at {self.base_url} (timeout 300s) ..."
                 )
                 start = time.time()
-                response = synthesizer.synthesize(user_prompt, nodes=nodes)
+                sys.stdout.write("[myguru] > ")
+                sys.stdout.flush()
+                for token in self._stream_ollama(formatted_prompt):
+                    if token == "__DONE__":
+                        break
+                    sys.stdout.write(token)
+                    sys.stdout.flush()
                 elapsed = time.time() - start
-                self.LOGGER.info(f"LLM responded in {elapsed:.1f}s")
-
-                print(f"[myguru] > {response}")
+                print()
                 print("_" * 25)
+                self.LOGGER.info(f"LLM responded in {elapsed:.1f}s")
 
                 if debug:
                     self.LOGGER.warning("Retrieved context chunks ...")
@@ -82,6 +144,7 @@ class RAGQuery(RAGBase):
         except (TimeoutError, Exception) as err:
             self.LOGGER.error(f"Query failed: {err}")
             self.LOGGER.error(
-                f"Check if Ollama is reachable at {self.base_url} and the model '{self.llm}' is pulled"
+                f"Check if Ollama is reachable at {self.base_url}"
+                f" and the model '{self.llm}' is pulled"
             )
             sys.exit(1)

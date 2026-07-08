@@ -83,6 +83,9 @@ _EXCLUDE_ALL_DEFAULTS = {
     ".tox",
     ".nox",
     ".idea",
+    "dist",
+    "build",
+    "*.egg-info",
 }
 
 _BINARY_EXT_DEFAULTS = {
@@ -105,6 +108,11 @@ _BINARY_EXT_DEFAULTS = {
     "ttf",
     "eot",
     "pdf",
+    "gz",
+    "zip",
+    "tar",
+    "bz2",
+    "xz",
 }
 
 
@@ -135,7 +143,7 @@ def walk_directory(src_path, exclude, exclude_all, exclude_ext):
         if exclude is not None:
             dirs[:] = [d for d in dirs if os.path.normpath(os.path.join(root, d)) not in exclude]
 
-        dirs[:] = [d for d in dirs if d not in merged_exclude_all]
+        dirs[:] = [d for d in dirs if d not in merged_exclude_all and not d.endswith(".egg-info")]
 
         for file in files:
             file_path = os.path.normpath(os.path.join(root, file))

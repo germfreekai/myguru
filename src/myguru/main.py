@@ -57,7 +57,13 @@ def rag_builder(tool_name, args, base_url):
     builder = RAGBuilder(tool_name, args.src, args.db, args.llm, args.cle, base_url)
 
     if args.create:
-        builder.setup_index(args.hash_file, args.exclude, args.exclude_all, args.exclude_ext)
+        builder.setup_index(
+            args.hash_file,
+            args.exclude,
+            args.exclude_all,
+            args.exclude_ext,
+            getattr(args, "force", False),
+        )
 
     if args.update:
         builder.update_index(args.hash_file)
@@ -134,6 +140,12 @@ def parse_args(tool_name):
     subparsers = parser.add_subparsers(title="Operation Modes", dest="mode", required=True)
 
     rag_builder_mode = subparsers.add_parser("learning", help="Feed knowledge to the guru.")
+    rag_builder_mode.add_argument(
+        "-F",
+        "--force",
+        action="store_true",
+        help="Drop existing collection and re-index from scratch.",
+    )
     hash_file_options = rag_builder_mode.add_argument_group("Update  DB options.")
     mut_exc_gropu = hash_file_options.add_mutually_exclusive_group(required=True)
     mut_exc_gropu.add_argument(

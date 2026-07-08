@@ -23,7 +23,7 @@ class RAGBase:
 
     LOGGER = Logger()
 
-    _IS_INIT = False
+    _is_init = False
 
     def __init__(self, tool_name, src_path, db_path, llm, cle, base_url):
         """
@@ -37,7 +37,7 @@ class RAGBase:
             - cle       (str): Embedding model.
             - base_url  (str): Ollama base url. url:port
         """
-        if not self._IS_INIT:
+        if not self._is_init:
             self.tool_name = tool_name
             self.src_path = src_path
             self.db_path = db_path
@@ -120,7 +120,7 @@ class RAGBase:
                     name=self.collection_name
                 )
 
-                self._IS_INIT = True
+                self._is_init = True
 
             except (TypeError, ConnectionError, Exception) as err:
                 self.LOGGER.error(err)
