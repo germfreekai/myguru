@@ -78,7 +78,9 @@ class RAGBase:
                 )
 
                 # configure embedding model (separate host if MYGURU_CLE_HOST is set)
-                Settings.embed_model = OllamaEmbedding(model_name=self.cle, base_url=self.cle_base_url)
+                Settings.embed_model = OllamaEmbedding(
+                    model_name=self.cle, base_url=self.cle_base_url
+                )
 
                 # define context information
                 self.qa_prompt = PromptTemplate(

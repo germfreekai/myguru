@@ -70,13 +70,41 @@ def norm_file_path(files):
 
 
 _EXCLUDE_ALL_DEFAULTS = {
-    ".git", "__pycache__", "node_modules", ".venv", "venv", "env", "ENV",
-    ".mypy_cache", ".pytest_cache", ".ruff_cache", ".tox", ".nox", ".idea",
+    ".git",
+    "__pycache__",
+    "node_modules",
+    ".venv",
+    "venv",
+    "env",
+    "ENV",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".nox",
+    ".idea",
 }
 
 _BINARY_EXT_DEFAULTS = {
-    "pyc", "pyo", "pyd", "so", "dll", "dylib", "bin", "exe", "png", "jpg",
-    "jpeg", "gif", "ico", "svg", "woff", "woff2", "ttf", "eot", "pdf",
+    "pyc",
+    "pyo",
+    "pyd",
+    "so",
+    "dll",
+    "dylib",
+    "bin",
+    "exe",
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "ico",
+    "svg",
+    "woff",
+    "woff2",
+    "ttf",
+    "eot",
+    "pdf",
 }
 
 

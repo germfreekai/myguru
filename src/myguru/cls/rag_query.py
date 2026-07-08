@@ -4,8 +4,8 @@ RAG Query.
 Query RAG agent in conversation/user mode.
 """
 
-import time
 import sys
+import time
 
 from llama_index.core.response_synthesizers import CompactAndRefine
 from llama_index.core.retrievers import VectorIndexRetriever
@@ -61,7 +61,9 @@ class RAGQuery(RAGBase):
                 elapsed = time.time() - start
                 self.LOGGER.info(f"Retrieved {len(nodes)} context chunks in {elapsed:.1f}s")
 
-                self.LOGGER.info(f"Sending to LLM ({self.llm}) at {self.base_url} (timeout 300s) ...")
+                self.LOGGER.info(
+                    f"Sending to LLM ({self.llm}) at {self.base_url} (timeout 300s) ..."
+                )
                 start = time.time()
                 response = synthesizer.synthesize(user_prompt, nodes=nodes)
                 elapsed = time.time() - start
@@ -79,5 +81,7 @@ class RAGQuery(RAGBase):
                         print("--------------------------------")
         except (TimeoutError, Exception) as err:
             self.LOGGER.error(f"Query failed: {err}")
-            self.LOGGER.error(f"Check if Ollama is reachable at {self.base_url} and the model '{self.llm}' is pulled")
+            self.LOGGER.error(
+                f"Check if Ollama is reachable at {self.base_url} and the model '{self.llm}' is pulled"
+            )
             sys.exit(1)

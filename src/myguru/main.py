@@ -91,7 +91,11 @@ def parse_args(tool_name):
 
     tool_options = parser.add_argument_group(f"{tool_name} options")
     tool_options.add_argument(
-        "-s", "--src", type=str, default=os.getenv("MYGURU_SRC") or None, help="Your project's src path."
+        "-s",
+        "--src",
+        type=str,
+        default=os.getenv("MYGURU_SRC") or None,
+        help="Your project's src path.",
     )
     tool_options.add_argument(
         "--db", type=str, default=os.getenv("MYGURU_DB") or None, help="Chroma Vector DB path."
@@ -113,7 +117,11 @@ def parse_args(tool_name):
 
     ollama_options = parser.add_argument_group("Ollama options")
     ollama_options.add_argument(
-        "-p", "--port", type=str, default=os.getenv("MYGURU_PORT", "11434"), help="Ollama server port. [11434]"
+        "-p",
+        "--port",
+        type=str,
+        default=os.getenv("MYGURU_PORT", "11434"),
+        help="Ollama server port. [11434]",
     )
     ollama_options.add_argument(
         "-u",

@@ -136,19 +136,22 @@ $ myguru guru
 
 ## Git hooks
 
-The repo includes a pre-push hook at `.githooks/pre-push` that runs the same checks as CI (black, isort, pylint, build) before every push. To install it:
+The repo includes a pre-push hook at `.githooks/pre-push` that runs the same checks as CI (black, isort, pylint, build) before every push. The hook auto-installs any missing tools, so you only need to enable it once:
 
 ```bash
-# 1. Install the required tools once
-pip install black isort pylint build
-
-# 2. Configure git to use the repo's hooks
+# Enable the hook (run once per clone from the repo root)
 git config core.hooksPath .githooks
+```
+
+To verify it's active:
+```bash
+git config core.hooksPath
+# Should output: .githooks
 ```
 
 After that, every `git push` will automatically verify formatting, imports, linting, and build — and abort the push if any check fails.
 
-To skip the hooks for a specific push (e.g., work-in-progress):
+To skip the hook for a specific push (e.g., work-in-progress):
 ```bash
 git push --no-verify
 ```
