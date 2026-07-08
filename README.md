@@ -1,8 +1,8 @@
 # myguru
----
-myguru is your personal project expert. This AI assistant knows everything about your own project.
 
-This guru goal is to assist you understanding how is your project working and answer any question based on your own project, directly from the terminal.
+**myguru is a terminal application** — you interact with it entirely from the command line, not in a browser.
+
+It is your personal project expert AI assistant that knows everything about your own project. It helps you understand how your project works and answers questions directly in your terminal.
 
 ## Dependencies
 Ollama and ChromeDb for Vector Databases.
@@ -26,131 +26,118 @@ $ ln -s /home/user/myguru/env/bin/myguru myguru
 $ cd
 ```
 > Source your terminal file and now it should available everywhere.
-- Options
-```
-$ myguru -h
- __  __  _    _  ______  __   __  ______  __   __
-|  \/  |\ \  / /|  ____||  | |  ||      ||  | |  |
-|      | \ \/ / | | ___ |  | |  ||    ▄ ||  | |  |
-| |\/| |  \  /  | ||_  ||  | |  ||    __||  | |  |
-| |  | |  / /   | |__| ||  |_|  || |\ \  |  |_|  |
-|_|  |_| /_/    |______||_______||_| \_\ |_______|
-usage: myguru [-h] -s SRC --db DB [--llm LLM] [--cle CLE] [-p PORT] [-u BASE_URL] {learning,guru} ...
 
-myguru. Your own project guru.
+## Configuration via `.env`
 
-options:
-  -h, --help            show this help message and exit
+All CLI options can also be set via environment variables in a `.env` file. The `.env` file is loaded automatically when you run `myguru` from the project root. Values in `.env` are overridden by any corresponding CLI flags, giving you a layered configuration:
 
-myguru options:
-  -s SRC, --src SRC     Your project's src path.
-  --db DB               Chroma Vector DB path.
+**CLI flag > `MYGURU_LLM_HOST` / `MYGURU_CLE_HOST` env var > `--base-url`/`--port` CLI flag > `MYGURU_BASE_URL`/`MYGURU_PORT` env var > built-in default**
 
-Used models for operations.:
-  --llm LLM             LLM model for code analysis and generation. [qwen2.5-coder:latest]
-  --cle CLE             Context Length Encoder for vector DB generation. [nomic-embed-text]
+### Available environment variables
 
-Ollama options:
-  -p PORT, --port PORT  Ollama server port. [11434]
-  -u BASE_URL, --base-url BASE_URL
-                        Ollama base url. [http://127.0.0.1]
+| Variable | Required | Description |
+|---|---|---|
+| `MYGURU_SRC` | Yes | Path to your project's source directory |
+| `MYGURU_DB` | Yes | Path to the Chroma Vector DB directory, or full URL for remote ChromaDB (e.g. `https://chromadb.example.com`) |
+| `MYGURU_LLM` | No | LLM model (default: `qwen2.5-coder:latest`) |
+| `MYGURU_CLE` | No | Embedding model (default: `nomic-embed-text`) |
+| `MYGURU_PORT` | No | Ollama port (default: `11434`) |
+| `MYGURU_BASE_URL` | No | Ollama base URL without port (default: `http://127.0.0.1`) |
+| `MYGURU_LLM_HOST` | No | Full Ollama server URL — overrides `MYGURU_BASE_URL` and `MYGURU_PORT` when set (e.g. `http://192.168.1.100:11434`) |
+| `MYGURU_CLE_HOST` | No | Full URL for the embedding model host, if different from the LLM host (e.g. `http://192.168.1.101:11434`) |
+| `MYGURU_HASH_FILE` | No | Hash file path (default: `project_hashes.json`) |
+| `MYGURU_EXCLUDE` | No | Comma-separated files/dirs to exclude |
+| `MYGURU_EXCLUDE_ALL` | No | Comma-separated names to exclude under every subpath |
+| `MYGURU_EXCLUDE_EXT` | No | Comma-separated file extensions to exclude |
 
-Operation Modes:
-  {learning,guru}
-    learning            Feed knowledge to the guru.
-    guru                Wake up the guru.
+### Example `.env`
 
-Happy Hacking!
-
-$ myguru learning -h
- __  __  _    _  ______  __   __  ______  __   __
-|  \/  |\ \  / /|  ____||  | |  ||      ||  | |  |
-|      | \ \/ / | | ___ |  | |  ||    ▄ ||  | |  |
-| |\/| |  \  /  | ||_  ||  | |  ||    __||  | |  |
-| |  | |  / /   | |__| ||  |_|  || |\ \  |  |_|  |
-|_|  |_| /_/    |______||_______||_| \_\ |_______|
-usage: myguru learning [-h] (-c | -u) [-f HASH_FILE] [-e EXCLUDE] [-ea EXCLUDE_ALL] [-ee EXCLUDE_EXT]
-
-options:
-  -h, --help            show this help message and exit
-
-Update  DB options.:
-  -c, --create          Create a project's hash file.
-  -u, --update          Update a project's guru. Updates hash file and DB.
-  -f HASH_FILE, --hash-file HASH_FILE
-                        Hashes file path. [project_hashes.json]
-
-Exclude options.:
-  -e EXCLUDE, --exclude EXCLUDE
-                        Files or dirs to exclude from processing. [path/to/file_or_dir]
-  -ea EXCLUDE_ALL, --exclude-all EXCLUDE_ALL
-                        Files or dirs to exclude under evey subpath. [file_or_dir]
-  -ee EXCLUDE_EXT, --exclude-ext EXCLUDE_EXT
-                        File extensions to exclude. [ext]
-
-$ myguru guru -h
- __  __  _    _  ______  __   __  ______  __   __
-|  \/  |\ \  / /|  ____||  | |  ||      ||  | |  |
-|      | \ \/ / | | ___ |  | |  ||    ▄ ||  | |  |
-| |\/| |  \  /  | ||_  ||  | |  ||    __||  | |  |
-| |  | |  / /   | |__| ||  |_|  || |\ \  |  |_|  |
-|_|  |_| /_/    |______||_______||_| \_\ |_______|
-usage: myguru guru [-h] [-d]
-
-options:
-  -h, --help   show this help message and exit
-  -d, --debug  Show processed files chunks when answering.
-```
-- Make your guru learn your project, exclude unnecessary files or dirs
-```
-$ myguru -s src --db clisnap-db learning -c -ea __pycache__ -ea .gitkeep -ee src/clisnap.egg-info
-2025-11-09 20:16 - INFO : INIT RAG BASE || LLM: qwen2.5-coder:latest || EMBEDDING MODEL: nomic-embed-text
-2025-11-09 20:16 - INFO : Starting indexing || src: src || DB: clisnap-db ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/__init__.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/main.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/cls/logger.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/cls/__init__.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/cls/clisnap.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/utils/utils.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap/utils/__init__.py ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap.egg-info/requires.txt ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap.egg-info/PKG-INFO ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap.egg-info/dependency_links.txt ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap.egg-info/SOURCES.txt ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap.egg-info/top_level.txt ...
-2025-11-09 20:16 - INFO : Parsing file: src/clisnap.egg-info/entry_points.txt ...
-2025-11-09 20:16 - INFO : Indexing completed! ...
-2025-11-09 20:16 - INFO : Creating hash file: project_hashes.json ...
-```
-- Ask your guru
 ```bash
-$ myguru -s src --db clisnap-db guru
-2025-11-09 20:18 - INFO : INIT RAG BASE || LLM: qwen2.5-coder:latest || EMBEDDING MODEL: nomic-embed-text
-2025-11-09 20:18 - INFO : Loading existing Vector Index from disk: clisnap-db ...
-2025-11-09 20:18 - INFO : INIT RAG BASE || LLM: qwen2.5-coder:latest || EMBEDDING MODEL: nomic-embed-text
-2025-11-09 20:18 - INFO : Starting Query operation ...
-2025-11-09 20:18 - INFO : Query engine mode ...
-[user] > how do I write the JSON files?
-[myguru] > To write JSON files in your project, you can use the `write_json_file` function from the `clisnap.utils` module. This function takes three arguments:
+# Create a .env file in the project root
+$ cat .env
+MYGURU_SRC=./src
+MYGURU_DB=https://chromadb.example.com   # or a local path like ./myguru-db
+MYGURU_LLM=qwen2.5-coder:latest
+MYGURU_CLE=nomic-embed-text
+MYGURU_PORT=11434
+MYGURU_BASE_URL=http://127.0.0.1
+# MYGURU_LLM_HOST=http://192.168.1.100:11434
+# MYGURU_CLE_HOST=http://192.168.1.100:11434
+MYGURU_HASH_FILE=project_hashes.json
+# MYGURU_EXCLUDE=__pycache__,node_modules
+# MYGURU_EXCLUDE_ALL=.gitkeep
+# MYGURU_EXCLUDE_EXT=.egg-info
+```
 
-1. `tool`: The name of the tool for which the JSON file is being written.
-2. `file_path`: The path to the JSON file.
-3. `data`: The data to be written to the JSON file, typically a dictionary.
+### Starting the app with `.env`
 
-Here's an example of how you can use this function in your code:
+Once the `.env` file is in place in the project root, simply run `myguru` as usual — the variables are loaded automatically. You can omit any CLI flags that are already set in `.env`:
 
-from clisnap.utils import write_json_file
+```bash
+# Without .env (full CLI):
+$ myguru -s src --db myguru-db learning -c
 
-# Example data to be written to the JSON file
-cmds = {
-    1: {"cmd": "ls", "description": "List directory contents"},
-    2: {"cmd": "pwd", "description": "Print current working directory"}
-}
+# With .env (shorter CLI):
+$ myguru learning -c
 
-# Write the data to a JSON file
-write_json_file("example_tool", "/path/to/example_tool.json", cmds)
+# With .env + MYGURU_LLM_HOST set (no need for --base-url or --port):
+$ myguru -s src --db myguru-db guru
+```
 
-This will create or overwrite the `example_tool.json` file in the specified path with the provided data.
+You can also mix and match — CLI flags always take precedence:
+
+```bash
+# Override just the model from .env:
+$ myguru --llm llama3.2:latest guru
+```
+
+## Usage
+
+myguru runs entirely in **your terminal** — no browser, no web UI. It has two modes. All flags below can be set once via `.env` and omitted from CLI thereafter.
+
+### 1. `learning` — Index your project
+
+Feed your project's source code into the vector database so myguru can learn it:
+
+```bash
+# Full CLI (every time):
+$ myguru -s ./src --db ./myguru-db learning -c
+
+# Or set MYGURU_SRC and MYGURU_DB in .env, then just:
+$ myguru learning -c
+```
+
+- `-s, --src` — path to your source code (or `MYGURU_SRC` in `.env`)
+- `--db` — where to store the vector database — local path or remote URL (or `MYGURU_DB` in `.env`)
+- `-c, --create` — create a fresh index
+- `-u, --update` — update an existing index
+- `-e, --exclude` — exclude specific files/dirs (repeatable)
+- `-ea, --exclude-all` — exclude by name in every subdirectory (repeatable)
+- `-ee, --exclude-ext` — exclude by extension (repeatable)
+
+### 2. `guru` — Ask questions
+
+Once indexed, start an interactive chat session in your terminal:
+
+```bash
+# Full CLI (every time):
+$ myguru -s ./src --db ./myguru-db guru
+[user] > how does authentication work?
+[myguru] > Based on the project's source code, authentication is handled in ...
 [user] > quit
-2025-11-09 20:21 - INFO : Exiting user's session ...
+
+# Or with a .env file, just:
+$ myguru guru
+```
+
+- `-d, --debug` — show which source chunks were used to answer
+
+> Type `quit` or `exit` to end the conversation.
+
+### See all options
+
+```bash
+$ myguru --help
+$ myguru learning --help
+$ myguru guru --help
 ```

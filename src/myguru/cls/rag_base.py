@@ -5,7 +5,10 @@ This class initializes all the necessary parts to run
 the RAG DB builder and the RAG qwery.
 """
 
+import os
+import re
 import sys
+from urllib.parse import urlparse
 
 import chromadb
 from llama_index.core import PromptTemplate, Settings
@@ -42,7 +45,12 @@ class RAGBase:
             self.cle = cle
             self.base_url = base_url
 
-            self.LOGGER.info(f"INIT RAG BASE || LLM: {self.llm} || EMBEDDING MODEL: {self.cle}")
+            cle_host = os.getenv("MYGURU_CLE_HOST")
+            self.cle_base_url = cle_host.rstrip("/") if cle_host else self.base_url
+            self.LOGGER.info(
+                f"INIT RAG BASE || LLM: {self.llm} || LLM HOST: {self.base_url}"
+                f" || EMBEDDING MODEL: {self.cle} || EMBEDDING HOST: {self.cle_base_url}"
+            )
 
             try:
                 # create our model persona
@@ -69,8 +77,8 @@ class RAGBase:
                     ),
                 )
 
-                # configure embedding model
-                Settings.embed_model = OllamaEmbedding(model_name=self.cle, base_url=self.base_url)
+                # configure embedding model (separate host if MYGURU_CLE_HOST is set)
+                Settings.embed_model = OllamaEmbedding(model_name=self.cle, base_url=self.cle_base_url)
 
                 # define context information
                 self.qa_prompt = PromptTemplate(
@@ -89,11 +97,23 @@ class RAGBase:
                     "Answer: "
                 )
 
-                # init chromaDB client
-                self.db_client = chromadb.PersistentClient(path=self.db_path)
-                self.collection_name = self.src_path.split("/")[
-                    -1
-                ]  # get project name if path given
+                # init chromaDB client (local or remote)
+                if self.db_path.startswith("http://") or self.db_path.startswith("https://"):
+                    parsed = urlparse(self.db_path)
+                    host = parsed.hostname
+                    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+                    ssl = parsed.scheme == "https"
+                    self.db_client = chromadb.HttpClient(host=host, port=port, ssl=ssl)
+                    self.persist_dir = f".chroma_{host}"
+                else:
+                    self.db_client = chromadb.PersistentClient(path=self.db_path)
+                    self.persist_dir = self.db_path
+
+                # derive collection name from source path, fall back to tool_name
+                raw_name = self.src_path.rstrip("/").split("/")[-1]
+                sanitized = re.sub(r"[^a-zA-Z0-9._-]", "_", raw_name).strip("._-")
+                fallback = re.sub(r"[^a-zA-Z0-9._-]", "_", self.tool_name).strip("._-")
+                self.collection_name = sanitized if len(sanitized) >= 3 else fallback
                 self.chroma_collection = self.db_client.get_or_create_collection(
                     name=self.collection_name
                 )

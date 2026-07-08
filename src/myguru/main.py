@@ -12,16 +12,18 @@ limitations.
 """
 
 import argparse
+import os
 import sys
 
 import maginner
+from dotenv import load_dotenv
 
 from myguru.cls import Logger, RAGBuilder, RAGQuery
 
 LOGGER = Logger()
 
 
-def rag_query(tool_name, args):
+def rag_query(tool_name, args, base_url):
     """
     RAG Query operation mode.
 
@@ -30,8 +32,8 @@ def rag_query(tool_name, args):
     Arguments:
         - tool_name (str): Tool's name.
         - args      (parser.args): Parsed arguments.
+        - base_url  (str): Ollama server URL (host:port).
     """
-    base_url = args.base_url + ":" + args.port
     builder = RAGBuilder(tool_name, args.src, args.db, args.llm, args.cle, base_url)
 
     index = builder.get_index()
@@ -41,7 +43,7 @@ def rag_query(tool_name, args):
     query.run_query(args.debug)
 
 
-def rag_builder(tool_name, args):
+def rag_builder(tool_name, args, base_url):
     """
     RAG Builder operation mode.
 
@@ -50,8 +52,8 @@ def rag_builder(tool_name, args):
     Arguments:
         - tool_name (str): Tool's name.
         - args      (parser.args): Parsed arguments.
+        - base_url  (str): Ollama server URL (host:port).
     """
-    base_url = args.base_url + ":" + args.port
     builder = RAGBuilder(tool_name, args.src, args.db, args.llm, args.cle, base_url)
 
     if args.create:
@@ -89,33 +91,35 @@ def parse_args(tool_name):
 
     tool_options = parser.add_argument_group(f"{tool_name} options")
     tool_options.add_argument(
-        "-s", "--src", type=str, required=True, help="Your project's src path."
+        "-s", "--src", type=str, default=os.getenv("MYGURU_SRC") or None, help="Your project's src path."
     )
-    tool_options.add_argument("--db", type=str, required=True, help="Chroma Vector DB path.")
+    tool_options.add_argument(
+        "--db", type=str, default=os.getenv("MYGURU_DB") or None, help="Chroma Vector DB path."
+    )
 
     model_groups = parser.add_argument_group("Used models for operations.")
     model_groups.add_argument(
         "--llm",
         type=str,
-        default="qwen2.5-coder:latest",
+        default=os.getenv("MYGURU_LLM", "qwen2.5-coder:latest"),
         help="LLM model for code analysis and generation. [qwen2.5-coder:latest]",
     )
     model_groups.add_argument(
         "--cle",
         type=str,
-        default="nomic-embed-text",
+        default=os.getenv("MYGURU_CLE", "nomic-embed-text"),
         help="Context Length Encoder for vector DB generation. [nomic-embed-text]",
     )
 
     ollama_options = parser.add_argument_group("Ollama options")
     ollama_options.add_argument(
-        "-p", "--port", type=str, default="11434", help="Ollama server port. [11434]"
+        "-p", "--port", type=str, default=os.getenv("MYGURU_PORT", "11434"), help="Ollama server port. [11434]"
     )
     ollama_options.add_argument(
         "-u",
         "--base-url",
         type=str,
-        default="http://127.0.0.1",
+        default=os.getenv("MYGURU_BASE_URL", "http://127.0.0.1"),
         help="Ollama base url. [http://127.0.0.1]",
     )
 
@@ -137,7 +141,7 @@ def parse_args(tool_name):
         "-f",
         "--hash-file",
         type=str,
-        default="project_hashes.json",
+        default=os.getenv("MYGURU_HASH_FILE", "project_hashes.json"),
         help="Hashes file path. [project_hashes.json]",
     )
 
@@ -170,16 +174,29 @@ def main():
     """Tool's main logic."""
     tool_name = sys.argv[0].split("/")[-1]
 
+    load_dotenv()
+
     if "-h" in sys.argv or "--help" in sys.argv:
         print_banner(tool_name)
 
     args = parse_args(tool_name)
 
+    if args.src is None or args.db is None:
+        print("error: --src and --db are required (via CLI or MYGURU_SRC/MYGURU_DB env vars)")
+        sys.exit(2)
+
+    if "://" in args.src:
+        print("error: --src must be a local filesystem path, not a URL")
+        sys.exit(2)
+
+    llm_host = os.getenv("MYGURU_LLM_HOST")
+    base_url = llm_host.rstrip("/") if llm_host else args.base_url + ":" + args.port
+
     if args.mode == "learning":
-        rag_builder(tool_name, args)
+        rag_builder(tool_name, args, base_url)
 
     if args.mode == "guru":
-        rag_query(tool_name, args)
+        rag_query(tool_name, args, base_url)
 
 
 if __name__ == "__main__":

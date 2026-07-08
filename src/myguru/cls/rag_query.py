@@ -4,7 +4,11 @@ RAG Query.
 Query RAG agent in conversation/user mode.
 """
 
+import time
 import sys
+
+from llama_index.core.response_synthesizers import CompactAndRefine
+from llama_index.core.retrievers import VectorIndexRetriever
 
 from myguru.cls.rag_base import RAGBase
 
@@ -39,14 +43,11 @@ class RAGQuery(RAGBase):
         self.LOGGER.info("Starting Query operation ...")
 
         try:
-            query_engine = self.index.as_query_engine(
-                similarity_top_k=5,
+            retriever = VectorIndexRetriever(index=self.index, similarity_top_k=5)
+            synthesizer = CompactAndRefine(
                 text_qa_template=self.qa_prompt,
-                response_mode="compact",
-                response_synthesizer_mode="compact",
+                verbose=debug,
             )
-
-            self.LOGGER.info("Query engine mode ...")
 
             while True:
                 user_prompt = input("[user] > ")
@@ -54,18 +55,29 @@ class RAGQuery(RAGBase):
                     self.LOGGER.info("Exiting user's session ...")
                     break
 
-                response = query_engine.query(user_prompt)
+                self.LOGGER.info("Retrieving context from ChromaDB ...")
+                start = time.time()
+                nodes = retriever.retrieve(user_prompt)
+                elapsed = time.time() - start
+                self.LOGGER.info(f"Retrieved {len(nodes)} context chunks in {elapsed:.1f}s")
+
+                self.LOGGER.info(f"Sending to LLM ({self.llm}) at {self.base_url} (timeout 300s) ...")
+                start = time.time()
+                response = synthesizer.synthesize(user_prompt, nodes=nodes)
+                elapsed = time.time() - start
+                self.LOGGER.info(f"LLM responded in {elapsed:.1f}s")
 
                 print(f"[myguru] > {response}")
                 print("_" * 25)
 
                 if debug:
                     self.LOGGER.warning("Retrieved context chunks ...")
-                    for i, node in enumerate(response.source_nodes):
+                    for i, node in enumerate(nodes):
                         print(f"Chunk {i+1} (Score: {node.score:.4f}):")
                         print(f"Source: {node.metadata.get('file_path', 'N/A')}")
                         print(node.get_content().strip())
                         print("--------------------------------")
         except (TimeoutError, Exception) as err:
-            self.LOGGER.error(err)
+            self.LOGGER.error(f"Query failed: {err}")
+            self.LOGGER.error(f"Check if Ollama is reachable at {self.base_url} and the model '{self.llm}' is pulled")
             sys.exit(1)

@@ -161,7 +161,7 @@ class RAGBuilder(RAGBase):
             self.LOGGER.info("Insert new version.")
             index.insert(doc)
 
-            index.storage_context.persist(self.db_path)
+            index.storage_context.persist(self.persist_dir)
 
             self.LOGGER.info("Successfull Update.")
 
