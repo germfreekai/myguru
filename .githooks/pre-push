@@ -1,0 +1,28 @@
+#!/bin/sh
+set -e
+
+echo "=== Running pre-push checks ==="
+
+# Check that required tools are available
+for cmd in black isort pylint; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "ERROR: $cmd is not installed. Run: pip install $cmd"
+        exit 1
+    fi
+done
+
+echo "[1/4] Checking formatting with black..."
+black --check --diff src/
+
+echo "[2/4] Checking imports with isort..."
+isort --check --diff src/
+
+echo "[3/4] Linting with pylint..."
+pylint src/myguru/
+
+echo "[4/4] Verifying package build..."
+if command -v python >/dev/null 2>&1; then
+    python -m build --check 2>/dev/null || python -m build
+fi
+
+echo "=== All checks passed! ==="
