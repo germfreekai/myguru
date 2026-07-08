@@ -77,3 +77,4 @@ myguru-db/
 # Accidentally created when MYGURU_DB was set to a URL
 http:
 https:
+opencode.json
