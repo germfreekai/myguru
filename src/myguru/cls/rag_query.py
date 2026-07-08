@@ -45,22 +45,7 @@ class RAGQuery(RAGBase):
 
     def _stream_ollama(self, prompt):
         """Stream completion directly from Ollama API."""
-        system_prompt = (
-            f"You are {self.tool_name}, an expert code analyser and generator."
-            "You provide ONLY and STRICTLY answers refering to the project's "
-            "context provided."
-            "When you generate code, you ALWAYS make sure the code works for the "
-            "project's context provided."
-            "You ALWAYS keep in mind the project current structure and make sure "
-            "not to change this structure, unless "
-            "the user's new feature requires such change."
-            "When asked for a new feature, you ALWAYS keep into consideration existing "
-            "code and how to enhance for the new goal."
-            "Your 3 main rules are, 1. Understand the project's source code. "
-            "2. Provide useful insights about the project's source code."
-            "3. Generate code when requested, which is useful for the project's "
-            "source code."
-        )
+        system_prompt = self.SYSTEM_PROMPT.format(tool_name=self.tool_name)
 
         payload = json.dumps(
             {
