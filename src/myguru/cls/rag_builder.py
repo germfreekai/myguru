@@ -84,7 +84,7 @@ class RAGBuilder(RAGBase):
                     all_documents, storage_context=self.storage_context
                 )
             except Exception as err:
-                self.LOGGER.error(err)
+                self.LOGGER.error(f"Error at file: {file} - {err}")
                 sys.exit(1)
 
             self.LOGGER.info("Indexing completed! ...")
