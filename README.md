@@ -51,6 +51,35 @@ ln -s "$(readlink -f env/bin/myguru)" ~/.local/bin/myguru
 
 ---
 
+## Configuration via `.env`
+
+All CLI options can also be set via environment variables in a `.env` file. The `.env` file is loaded automatically when you run `myguru` from the project root. CLI flags always take precedence over `.env`/environment values.
+
+### Remote Ollama hosts
+
+| Variable | Description |
+|---|---|
+| `MYGURU_LLM_HOST` | Full Ollama server URL for the LLM — overrides `--base-url`/`--port` (and their env equivalents) when set (e.g. `http://192.168.1.100:11434`) |
+| `MYGURU_CLE_HOST` | Full URL for the embedding model host, if different from the LLM host. Falls back to the resolved LLM host when unset. |
+
+### Example `.env`
+
+```bash
+# Create a .env file in the project root
+$ cat .env
+MYGURU_SRC=./src
+MYGURU_DB=./myguru-db
+MYGURU_LLM=qwen2.5-coder:latest
+MYGURU_EMBED_MODEL=nomic-embed-text
+MYGURU_QUIET=1
+# MYGURU_LLM_HOST=http://192.168.1.100:11434
+# MYGURU_CLE_HOST=http://192.168.1.101:11434
+```
+
+Once the file is in place, just run `myguru` — no CLI flags are needed for anything already set in `.env`. See [Configuration Reference](#configuration-reference) below for the full list of flags and their env-var equivalents.
+
+---
+
 ## Quick Start for Automation / CI
 
 All flags have environment-variable fallbacks. Set them once in your pipeline; no flags are needed on the command line.
@@ -182,8 +211,12 @@ Exit code: `0` on success, `1` on error. No REPL prompt text appears on stdout i
 | `--port` | `-p` | `MYGURU_PORT` | `11434` |
 | `--quiet` | | `MYGURU_QUIET` | unset |
 | `--hash-file` | `-f` | _(none)_ | `project_hashes.json` |
+| _(none)_ | | `MYGURU_LLM_HOST` | _(unset — falls back to --base-url + --port)_ |
+| _(none)_ | | `MYGURU_CLE_HOST` | _(unset — falls back to --base-url + --port)_ |
 
 CLI flags take precedence over environment variables. `--src` and `--db` are required unless set via their env vars.
+
+`MYGURU_LLM_HOST` and `MYGURU_CLE_HOST` are host-override env vars with no CLI flag equivalent. When set, they take full precedence over --base-url and --port for their respective models.
 
 The following parameters are hardcoded and require source changes to modify:
 
@@ -252,6 +285,31 @@ If you have an existing myguru database created before the optimization pass, th
 3. **Logs moved to stderr.** All `INFO`/`WARNING`/`ERROR` output now goes to `stderr`. Program output (JSON responses, REPL answers) goes to `stdout`. Update any wrapper script that captured log lines from `stdout`.
 
 See `CHANGES.md` for a full list of changes.
+
+---
+
+## Development
+
+CI runs `black`, `isort`, `pylint`, and a package build on every push/PR via `.github/workflows/ci.yml`.
+
+The repo also includes an opt-in pre-push git hook at `.githooks/pre-push` that runs the same checks locally before every push, auto-installing any missing tools. Enable it once per clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Verify it's active:
+
+```bash
+git config core.hooksPath
+# Should output: .githooks
+```
+
+To skip the hook for a specific push (e.g. work-in-progress):
+
+```bash
+git push --no-verify
+```
 
 ---
 

@@ -48,7 +48,7 @@ class RAGBuilder(RAGBase):
         self.vector_store = ChromaVectorStore(chroma_collection=self.chroma_collection)
         self.storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
 
-    def setup_index(self, hash_file, exclude, exclude_all, exclude_ext):
+    def setup_index(self, hash_file, exclude, exclude_all, exclude_ext, force=False):
         """
         Create persistent VectorStoreIndex.
 
@@ -57,7 +57,15 @@ class RAGBuilder(RAGBase):
             - exclude     (list): List of files or directories to exclude.
             - exclude_all (list): List of files or directories to exclude in all subpaths.
             - exclude_ext (list): List of extensions to exclude in all subpaths.
+            - force       (bool): Drop existing collection and re-index.
         """
+        if force:
+            self.LOGGER.info("Force mode: dropping existing collection ...")
+            self.db_client.delete_collection(self.collection_name)
+            self.chroma_collection = self.db_client.create_collection(name=self.collection_name)
+            self.vector_store = ChromaVectorStore(chroma_collection=self.chroma_collection)
+            self.storage_context = StorageContext.from_defaults(vector_store=self.vector_store)
+
         if self.chroma_collection.count() == 0:
             self.LOGGER.info(f"Starting indexing || src: {self.src_path} || DB: {self.db_path} ...")
 
@@ -90,7 +98,7 @@ class RAGBuilder(RAGBase):
             self.LOGGER.info("Indexing completed! ...")
             self._create_project_hash_file(hash_file, all_files, exclude, exclude_all, exclude_ext)
         else:
-            self.LOGGER.error("DB already exists, use update operation.")
+            self.LOGGER.error("DB already exists, use update operation or --force to re-index.")
             sys.exit(0)
 
     def _create_project_hash_file(self, hash_file, all_files, exclude, exclude_all, exclude_ext):

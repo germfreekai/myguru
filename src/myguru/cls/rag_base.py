@@ -22,6 +22,23 @@ class RAGBase:
 
     LOGGER = Logger()
 
+    SYSTEM_PROMPT = (
+        "You are {tool_name}, an expert code analyser and generator."
+        "You provide ONLY and STRICTLY answers refering to the project's "
+        "context provided."
+        "When you generate code, you ALWAYS make sure the code works for the "
+        "project's context provided."
+        "You ALWAYS keep in mind the project current structure and make sure "
+        "not to change this structure, unless "
+        "the user's new feature requires such change."
+        "When asked for a new feature, you ALWAYS keep into consideration existing "
+        "code and how to enhance for the new goal."
+        "Your 3 main rules are, 1. Understand the project's source code. "
+        "2. Provide useful insights about the project's source code."
+        "3. Generate code when requested, which is useful for the project's "
+        "source code."
+    )
+
     def __init__(self, tool_name, src_path, db_path, llm, cle, base_url):
         """
         Init Base Class.
@@ -41,7 +58,13 @@ class RAGBase:
         self.cle = cle
         self.base_url = base_url
 
-        self.LOGGER.info(f"INIT RAG BASE || LLM: {self.llm} || EMBEDDING MODEL: {self.cle}")
+        cle_host = os.getenv("MYGURU_CLE_HOST")
+        self.cle_base_url = cle_host.rstrip("/") if cle_host else self.base_url
+
+        self.LOGGER.info(
+            f"INIT RAG BASE || LLM: {self.llm} || LLM HOST: {self.base_url}"
+            f" || EMBEDDING MODEL: {self.cle} || EMBEDDING HOST: {self.cle_base_url}"
+        )
 
         try:
             # create our model persona
@@ -50,26 +73,11 @@ class RAGBase:
                 base_url=self.base_url,
                 temperature=0.0,
                 request_timeout=300.0,
-                system_prompt=(
-                    f"You are {self.tool_name}, an expert code analyser and generator."
-                    "You provide ONLY and STRICTLY answers refering to the project's "
-                    "context provided."
-                    "When you generate code, you ALWAYS make sure the code works for the "
-                    "project's context provided."
-                    "You ALWAYS keep in mind the project current structure and make sure "
-                    "not to change this structure, unless "
-                    "the user's new feature requires such change."
-                    "When asked for a new feature, you ALWAYS keep into consideration existing "
-                    "code and how to enhance for the new goal."
-                    "Your 3 main rules are, 1. Understand the project's source code. "
-                    "2. Provide useful insights about the project's source code."
-                    "3. Generate code when requested, which is useful for the project's "
-                    "source code."
-                ),
+                system_prompt=self.SYSTEM_PROMPT.format(tool_name=self.tool_name),
             )
 
-            # configure embedding model
-            Settings.embed_model = OllamaEmbedding(model_name=self.cle, base_url=self.base_url)
+            # configure embedding model (separate host if MYGURU_CLE_HOST is set)
+            Settings.embed_model = OllamaEmbedding(model_name=self.cle, base_url=self.cle_base_url)
 
             # define context information
             self.qa_prompt = PromptTemplate(

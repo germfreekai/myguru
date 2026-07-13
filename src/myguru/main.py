@@ -16,13 +16,14 @@ import os
 import sys
 
 import maginner
+from dotenv import load_dotenv
 
 from myguru.cls import Logger, RAGBuilder, RAGQuery
 
 LOGGER = Logger()
 
 
-def rag_query(tool_name, args):
+def rag_query(tool_name, args, base_url):
     """
     RAG Query operation mode.
 
@@ -31,11 +32,11 @@ def rag_query(tool_name, args):
     Arguments:
         - tool_name (str): Tool's name.
         - args      (parser.args): Parsed arguments.
+        - base_url  (str): Ollama server URL (host:port).
     """
     if args.json and args.query is None:
         LOGGER.warning("--json has no effect without -q/--query. Running interactive mode.")
 
-    base_url = args.base_url + ":" + args.port
     builder = RAGBuilder(tool_name, args.src, args.db, args.llm, args.cle, base_url)
 
     index = builder.get_index()
@@ -45,7 +46,7 @@ def rag_query(tool_name, args):
     query.run_query(args.debug, args.query, args.json)
 
 
-def rag_builder(tool_name, args):
+def rag_builder(tool_name, args, base_url):
     """
     RAG Builder operation mode.
 
@@ -54,12 +55,18 @@ def rag_builder(tool_name, args):
     Arguments:
         - tool_name (str): Tool's name.
         - args      (parser.args): Parsed arguments.
+        - base_url  (str): Ollama server URL (host:port).
     """
-    base_url = args.base_url + ":" + args.port
     builder = RAGBuilder(tool_name, args.src, args.db, args.llm, args.cle, base_url)
 
     if args.create:
-        builder.setup_index(args.hash_file, args.exclude, args.exclude_all, args.exclude_ext)
+        builder.setup_index(
+            args.hash_file,
+            args.exclude,
+            args.exclude_all,
+            args.exclude_ext,
+            getattr(args, "force", False),
+        )
 
     if args.update:
         builder.update_index(args.hash_file)
@@ -168,6 +175,12 @@ def parse_args(tool_name):
     subparsers = parser.add_subparsers(title="Operation Modes", dest="mode", required=True)
 
     rag_builder_mode = subparsers.add_parser("learning", help="Feed knowledge to the guru.")
+    rag_builder_mode.add_argument(
+        "-F",
+        "--force",
+        action="store_true",
+        help="Drop existing collection and re-index from scratch.",
+    )
     hash_file_options = rag_builder_mode.add_argument_group("Update  DB options.")
     mut_exc_gropu = hash_file_options.add_mutually_exclusive_group(required=True)
     mut_exc_gropu.add_argument(
@@ -212,7 +225,7 @@ def parse_args(tool_name):
         "-q",
         "--query",
         type=str,
-        default=None,
+        default=os.environ.get("MYGURU_QUERY"),
         help="Single-query mode: run one question and exit (no REPL). [env: MYGURU_QUERY]",
     )
     rag_query_mode.add_argument(
@@ -230,6 +243,8 @@ def main():
     """Tool's main logic."""
     tool_name = sys.argv[0].split("/")[-1]
 
+    load_dotenv()
+
     if "-h" in sys.argv or "--help" in sys.argv:
         print_banner(tool_name)
 
@@ -238,11 +253,18 @@ def main():
     if args.quiet:
         Logger.set_quiet()
 
+    if "://" in args.src:
+        print("error: --src must be a local filesystem path, not a URL")
+        sys.exit(2)
+
+    llm_host = os.getenv("MYGURU_LLM_HOST")
+    base_url = llm_host.rstrip("/") if llm_host else args.base_url + ":" + args.port
+
     if args.mode == "learning":
-        rag_builder(tool_name, args)
+        rag_builder(tool_name, args, base_url)
 
     if args.mode == "guru":
-        rag_query(tool_name, args)
+        rag_query(tool_name, args, base_url)
 
 
 if __name__ == "__main__":

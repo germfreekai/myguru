@@ -1,0 +1,29 @@
+#!/bin/sh
+set -e
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+echo "=== Running pre-push checks ==="
+
+# Install missing linting tools
+for cmd in black isort pylint build; do
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "Installing $cmd..."
+        pip install -q "$cmd"
+    fi
+done
+
+echo "[1/4] Checking formatting with black..."
+black --check --diff src/
+
+echo "[2/4] Checking imports with isort..."
+isort --check --diff src/
+
+echo "[3/4] Linting with pylint..."
+pylint src/myguru/ || echo "Warning: pylint reported issues"
+
+echo "[4/4] Verifying package build..."
+python -m build
+
+echo "=== All checks passed! ==="

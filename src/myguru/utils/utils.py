@@ -69,6 +69,53 @@ def norm_file_path(files):
     return [os.path.normpath(file) for file in files]
 
 
+_EXCLUDE_ALL_DEFAULTS = {
+    ".git",
+    "__pycache__",
+    "node_modules",
+    ".venv",
+    "venv",
+    "env",
+    "ENV",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".nox",
+    ".idea",
+    "dist",
+    "build",
+    "*.egg-info",
+}
+
+_BINARY_EXT_DEFAULTS = {
+    "pyc",
+    "pyo",
+    "pyd",
+    "so",
+    "dll",
+    "dylib",
+    "bin",
+    "exe",
+    "png",
+    "jpg",
+    "jpeg",
+    "gif",
+    "ico",
+    "svg",
+    "woff",
+    "woff2",
+    "ttf",
+    "eot",
+    "pdf",
+    "gz",
+    "zip",
+    "tar",
+    "bz2",
+    "xz",
+}
+
+
 def walk_directory(src_path, exclude, exclude_all, exclude_ext):
     """
     Walk directory recusively.
@@ -87,26 +134,25 @@ def walk_directory(src_path, exclude, exclude_all, exclude_ext):
     if exclude is not None:
         exclude[:] = norm_file_path(exclude)
 
+    merged_exclude_all = _EXCLUDE_ALL_DEFAULTS | (set(exclude_all) if exclude_all else set())
+    merged_exclude_ext = _BINARY_EXT_DEFAULTS | (set(exclude_ext) if exclude_ext else set())
+
     process_files = []
 
     for root, dirs, files in os.walk(src_path):
         if exclude is not None:
-            # remove this paths
             dirs[:] = [d for d in dirs if os.path.normpath(os.path.join(root, d)) not in exclude]
 
-        if exclude_all is not None:
-            # remove paths globally
-            dirs[:] = [d for d in dirs if d not in exclude_all]
+        dirs[:] = [d for d in dirs if d not in merged_exclude_all and not d.endswith(".egg-info")]
 
         for file in files:
             file_path = os.path.normpath(os.path.join(root, file))
             _, ext = os.path.splitext(file_path)
             ext = ext.lstrip(".")
 
-            # split it just to silence the linter
             exclude_flag = exclude is not None and file_path in exclude
-            exclude_all_flag = exclude_all is not None and file in exclude_all
-            exclude_ext_flag = exclude_ext is not None and ext in exclude_ext
+            exclude_all_flag = file in merged_exclude_all
+            exclude_ext_flag = ext in merged_exclude_ext
 
             if exclude_flag or exclude_all_flag or exclude_ext_flag:
                 continue
