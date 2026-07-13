@@ -211,8 +211,12 @@ Exit code: `0` on success, `1` on error. No REPL prompt text appears on stdout i
 | `--port` | `-p` | `MYGURU_PORT` | `11434` |
 | `--quiet` | | `MYGURU_QUIET` | unset |
 | `--hash-file` | `-f` | _(none)_ | `project_hashes.json` |
+| _(none)_ | | `MYGURU_LLM_HOST` | _(unset — falls back to --base-url + --port)_ |
+| _(none)_ | | `MYGURU_CLE_HOST` | _(unset — falls back to --base-url + --port)_ |
 
 CLI flags take precedence over environment variables. `--src` and `--db` are required unless set via their env vars.
+
+`MYGURU_LLM_HOST` and `MYGURU_CLE_HOST` are host-override env vars with no CLI flag equivalent. When set, they take full precedence over --base-url and --port for their respective models.
 
 The following parameters are hardcoded and require source changes to modify:
 

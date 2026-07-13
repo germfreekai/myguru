@@ -225,7 +225,7 @@ def parse_args(tool_name):
         "-q",
         "--query",
         type=str,
-        default=None,
+        default=os.environ.get("MYGURU_QUERY"),
         help="Single-query mode: run one question and exit (no REPL). [env: MYGURU_QUERY]",
     )
     rag_query_mode.add_argument(
