@@ -1,54 +1,66 @@
 # myguru
 
-**myguru is a terminal application** — you interact with it entirely from the command line, not in a browser.
+myguru turns any local source tree into a queryable AI assistant. It indexes your project files into a ChromaDB vector database, then uses Ollama to answer questions about your code — entirely offline, with no external API calls. There is no server to run; it is a CLI tool invoked once per session.
 
-It is your personal project expert AI assistant that knows everything about your own project. It helps you understand how your project works and answers questions directly in your terminal.
+---
 
-## Dependencies
-Ollama and ChromeDb for Vector Databases.
+## Prerequisites
 
-## How to run?
-Running with a python environment is recommended.
-- Installation
+**Python:** 3.12.3 or later.
+
+**Ollama** must be installed and running locally:
+
 ```bash
-$ git clone https://github.com/germfreekai/myguru.git
-$ cd myguru
-$ python3 -m venv env
-$ source env/bin/activate
-$ pip install .
+# Install Ollama (Linux / WSL2)
+curl -fsSL https://ollama.com/install.sh | sh
 ```
-- Run everywhere
+
+See https://ollama.com/download for macOS and Windows installers.
+
+Start the Ollama server if it is not already running as a service:
+
 ```bash
-$ deactivate
-$ readlink -f env/bin/myguru   # copy this stdout (e.g /home/user/myguru/env/bin/myguru)
-$ cd ~/.local/bin/
-$ ln -s /home/user/myguru/env/bin/myguru myguru
-$ cd
+ollama serve
 ```
-> Source your terminal file and now it should available everywhere.
+
+Pull the default models (required before first use):
+
+```bash
+ollama pull qwen2.5-coder:latest   # LLM — configurable via --llm
+ollama pull nomic-embed-text       # embedding model — configurable via --cle
+```
+
+---
+
+## Installation
+
+```bash
+git clone https://github.com/germfreekai/myguru.git
+cd myguru
+python3 -m venv env
+source env/bin/activate
+pip install -e .
+```
+
+To make `myguru` available outside the virtualenv:
+
+```bash
+deactivate
+ln -s "$(readlink -f env/bin/myguru)" ~/.local/bin/myguru
+```
+
+---
 
 ## Configuration via `.env`
 
-All CLI options can also be set via environment variables in a `.env` file. The `.env` file is loaded automatically when you run `myguru` from the project root. Values in `.env` are overridden by any corresponding CLI flags, giving you a layered configuration:
+All CLI options can also be set via environment variables in a `.env` file. The `.env` file is loaded automatically when you run `myguru` from the project root. CLI flags always take precedence over `.env`/environment values.
 
-**CLI flag > `MYGURU_LLM_HOST` / `MYGURU_CLE_HOST` env var > `--base-url`/`--port` CLI flag > `MYGURU_BASE_URL`/`MYGURU_PORT` env var > built-in default**
+### Remote Ollama hosts
 
-### Available environment variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `MYGURU_SRC` | Yes | Path to your project's source directory |
-| `MYGURU_DB` | Yes | Path to the Chroma Vector DB directory, or full URL for remote ChromaDB (e.g. `https://chromadb.example.com`) |
-| `MYGURU_LLM` | No | LLM model (default: `qwen2.5-coder:latest`) |
-| `MYGURU_CLE` | No | Embedding model (default: `nomic-embed-text`) |
-| `MYGURU_PORT` | No | Ollama port (default: `11434`) |
-| `MYGURU_BASE_URL` | No | Ollama base URL without port (default: `http://127.0.0.1`) |
-| `MYGURU_LLM_HOST` | No | Full Ollama server URL — overrides `MYGURU_BASE_URL` and `MYGURU_PORT` when set (e.g. `http://192.168.1.100:11434`) |
-| `MYGURU_CLE_HOST` | No | Full URL for the embedding model host, if different from the LLM host (e.g. `http://192.168.1.101:11434`) |
-| `MYGURU_HASH_FILE` | No | Hash file path (default: `project_hashes.json`) |
-| `MYGURU_EXCLUDE` | No | Comma-separated files/dirs to exclude |
-| `MYGURU_EXCLUDE_ALL` | No | Comma-separated names to exclude under every subpath |
-| `MYGURU_EXCLUDE_EXT` | No | Comma-separated file extensions to exclude |
+| Variable | Description |
+|---|---|
+| `MYGURU_LLM_HOST` | Full Ollama server URL for the LLM — overrides `--base-url`/`--port` (and their env equivalents) when set (e.g. `http://192.168.1.100:11434`) |
+| `MYGURU_CLE_HOST` | Full URL for the embedding model host, if different from the LLM host. Falls back to the resolved LLM host when unset. |
 
 ### Example `.env`
 
@@ -56,110 +68,252 @@ All CLI options can also be set via environment variables in a `.env` file. The 
 # Create a .env file in the project root
 $ cat .env
 MYGURU_SRC=./src
-MYGURU_DB=https://chromadb.example.com   # or a local path like ./myguru-db
+MYGURU_DB=./myguru-db
 MYGURU_LLM=qwen2.5-coder:latest
-MYGURU_CLE=nomic-embed-text
-MYGURU_PORT=11434
-MYGURU_BASE_URL=http://127.0.0.1
+MYGURU_EMBED_MODEL=nomic-embed-text
+MYGURU_QUIET=1
 # MYGURU_LLM_HOST=http://192.168.1.100:11434
-# MYGURU_CLE_HOST=http://192.168.1.100:11434
-MYGURU_HASH_FILE=project_hashes.json
-# MYGURU_EXCLUDE=__pycache__,node_modules
-# MYGURU_EXCLUDE_ALL=.gitkeep
-# MYGURU_EXCLUDE_EXT=.egg-info
+# MYGURU_CLE_HOST=http://192.168.1.101:11434
 ```
 
-### Starting the app with `.env`
+Once the file is in place, just run `myguru` — no CLI flags are needed for anything already set in `.env`. See [Configuration Reference](#configuration-reference) below for the full list of flags and their env-var equivalents.
 
-Once the `.env` file is in place in the project root, simply run `myguru` as usual — the variables are loaded automatically. You can omit any CLI flags that are already set in `.env`:
+---
+
+## Quick Start for Automation / CI
+
+All flags have environment-variable fallbacks. Set them once in your pipeline; no flags are needed on the command line.
 
 ```bash
-# Without .env (full CLI):
-$ myguru -s src --db myguru-db learning -c
+export MYGURU_SRC=/workspace/myproject/src
+export MYGURU_DB=/workspace/myproject-db
+export MYGURU_QUIET=1
+export MYGURU_BASE_URL=http://ollama-service   # if Ollama is on a remote host
 
-# With .env (shorter CLI):
-$ myguru learning -c
+# Index — exits 0 on success, 1 on failure
+if myguru learning -c -ea __pycache__ -ee pyc; then
+    echo "Indexing complete"
+else
+    echo "Indexing failed" >&2
+    exit 1
+fi
 
-# With .env + MYGURU_LLM_HOST set (no need for --base-url or --port):
-$ myguru -s src --db myguru-db guru
+# Single structured query — clean JSON on stdout, logs on stderr
+result=$(myguru guru -q "List all public functions" --json 2>/dev/null)
+echo "$result" | jq '.response'
+
+# Redirect logs to a file while keeping the JSON on stdout
+myguru guru -q "Summarize the architecture" --json 2>guru.log
 ```
 
-You can also mix and match — CLI flags always take precedence:
+### `--quiet` placement gotcha
+
+`--quiet` is a **global flag** and must appear **before** the subcommand name:
 
 ```bash
-# Override just the model from .env:
-$ myguru --llm llama3.2:latest guru
+# Correct — --quiet before the subcommand
+myguru --quiet -s src --db mydb learning -c
+myguru -s src --db mydb --quiet learning -c
+
+# Wrong — --quiet after the subcommand will error
+myguru -s src --db mydb learning --quiet -c
+# → error: unrecognized arguments: --quiet
 ```
 
-## Usage
+---
 
-myguru runs entirely in **your terminal** — no browser, no web UI. It has two modes. All flags below can be set once via `.env` and omitted from CLI thereafter.
+## Usage — Interactive (local development)
 
-### 1. `learning` — Index your project
-
-Feed your project's source code into the vector database so myguru can learn it:
+### Index a project from scratch
 
 ```bash
-# Full CLI (every time):
-$ myguru -s ./src --db ./myguru-db learning -c
-
-# Or set MYGURU_SRC and MYGURU_DB in .env, then just:
-$ myguru learning -c
+myguru -s src --db myproject-db learning -c \
+    -ea __pycache__ \
+    -ea .git \
+    -ee pyc \
+    -ee egg-info
 ```
 
-- `-s, --src` — path to your source code (or `MYGURU_SRC` in `.env`)
-- `--db` — where to store the vector database — local path or remote URL (or `MYGURU_DB` in `.env`)
-- `-c, --create` — create a fresh index
-- `-u, --update` — update an existing index
-- `-e, --exclude` — exclude specific files/dirs (repeatable)
-- `-ea, --exclude-all` — exclude by name in every subdirectory (repeatable)
-- `-ee, --exclude-ext` — exclude by extension (repeatable)
+| Exclude flag | What it does |
+|---|---|
+| `-e path/to/file_or_dir` | Exclude a specific file or directory by path |
+| `-ea name` | Exclude any file or directory with this name, at any depth |
+| `-ee ext` | Exclude all files with this extension |
 
-### 2. `guru` — Ask questions
+All exclude parameters are stored in `project_hashes.json` and reused on subsequent `learning -u` runs.
 
-Once indexed, start an interactive chat session in your terminal:
+### Update an index after code changes
 
 ```bash
-# Full CLI (every time):
-$ myguru -s ./src --db ./myguru-db guru
-[user] > how does authentication work?
-[myguru] > Based on the project's source code, authentication is handled in ...
+myguru -s src --db myproject-db learning -u
+```
+
+Files whose MD5 has changed are removed from the index and re-embedded. New files added to the source tree since the last `learning -c` are detected automatically and added to the index.
+
+### Interactive query session
+
+```bash
+myguru -s src --db myproject-db guru
+```
+
+```
+[user] > how is the configuration loaded?
+[myguru] > Configuration is loaded in main.py via parse_args()...
+_________________________
 [user] > quit
-
-# Or with a .env file, just:
-$ myguru guru
 ```
 
-- `-d, --debug` — show which source chunks were used to answer
+Type `quit` or `exit` to end the session.
 
-> Type `quit` or `exit` to end the conversation.
+---
 
-## Git hooks
+## Usage — Single Query Mode
 
-The repo includes a pre-push hook at `.githooks/pre-push` that runs the same checks as CI (black, isort, pylint, build) before every push. The hook auto-installs any missing tools, so you only need to enable it once:
+Run one question non-interactively and exit. No REPL is started.
 
 ```bash
-# Enable the hook (run once per clone from the repo root)
+# Plain-text response
+myguru -s src --db myproject-db guru -q "What does walk_directory do?"
+
+# Structured JSON to stdout (logs go to stderr)
+myguru -s src --db myproject-db guru -q "What does walk_directory do?" --json
+```
+
+### JSON output shape
+
+```json
+{
+  "query": "What does walk_directory do?",
+  "response": "walk_directory recursively walks src_path...",
+  "sources": [
+    {
+      "file_path": "src/myguru/utils/utils.py",
+      "score": 0.8312,
+      "content": "def walk_directory(src_path, exclude, ..."
+    }
+  ]
+}
+```
+
+Exit code: `0` on success, `1` on error. No REPL prompt text appears on stdout in this mode.
+
+---
+
+## Configuration Reference
+
+| Flag | Short | Env variable | Default |
+|---|---|---|---|
+| `--src` | `-s` | `MYGURU_SRC` | _(required)_ |
+| `--db` | | `MYGURU_DB` | _(required)_ |
+| `--llm` | | `MYGURU_LLM` | `qwen2.5-coder:latest` |
+| `--cle` | | `MYGURU_EMBED_MODEL` | `nomic-embed-text` |
+| `--base-url` | `-u` | `MYGURU_BASE_URL` | `http://127.0.0.1` |
+| `--port` | `-p` | `MYGURU_PORT` | `11434` |
+| `--quiet` | | `MYGURU_QUIET` | unset |
+| `--hash-file` | `-f` | _(none)_ | `project_hashes.json` |
+
+CLI flags take precedence over environment variables. `--src` and `--db` are required unless set via their env vars.
+
+The following parameters are hardcoded and require source changes to modify:
+
+| Parameter | Value | Location |
+|---|---|---|
+| LLM temperature | `0.0` | `rag_base.py` |
+| Request timeout | `300.0 s` | `rag_base.py` |
+| Similarity top-k | `5` | `rag_query.py` |
+| Chunk size | LlamaIndex default (1024 tokens) | `rag_builder.py` |
+
+---
+
+## Running a Smoke Test
+
+This end-to-end check confirms that Ollama, ChromaDB, and myguru are all wired correctly. It indexes the myguru source itself and queries it.
+
+```bash
+# 1. From the repo root, index the myguru source
+myguru -s src --db /tmp/myguru-smoketest-db learning -c \
+    -ea __pycache__ \
+    -ee pyc
+# Expected: INFO lines showing each file being parsed, then "Indexing completed!"
+# Exit code must be 0.
+
+# 2. Run a single structured query
+myguru -s src --db /tmp/myguru-smoketest-db \
+    guru -q "What does the walk_directory function do?" --json 2>/dev/null
+```
+
+Expected output (abbreviated):
+
+```json
+{
+  "query": "What does the walk_directory function do?",
+  "response": "The walk_directory function recursively walks a source directory...",
+  "sources": [
+    {
+      "file_path": "src/myguru/utils/utils.py",
+      "score": 0.8541,
+      "content": "def walk_directory(src_path, exclude, exclude_all, exclude_ext):\n..."
+    }
+  ]
+}
+```
+
+If the response is populated and the exit code is 0, the setup is working. Clean up afterward:
+
+```bash
+rm -rf /tmp/myguru-smoketest-db project_hashes.json
+```
+
+---
+
+## Migration Notes (upgrading from pre-0.1 optimization)
+
+If you have an existing myguru database created before the optimization pass, three breaking changes require action:
+
+1. **Collection name changed.** The ChromaDB collection is now named using a SHA-1 hash of the absolute `--src` path instead of the last directory component. Existing databases are unreadable by the new code. Delete the old DB and re-index:
+   ```bash
+   rm -rf your-existing-db/
+   myguru -s your/src --db your-existing-db learning -c [exclude options]
+   ```
+
+2. **Exit codes changed.** `learning` now exits `0` on success (it was `1`). Update any script that checked `$? -ne 0` after an indexing run.
+
+3. **Logs moved to stderr.** All `INFO`/`WARNING`/`ERROR` output now goes to `stderr`. Program output (JSON responses, REPL answers) goes to `stdout`. Update any wrapper script that captured log lines from `stdout`.
+
+See `CHANGES.md` for a full list of changes.
+
+---
+
+## Development
+
+CI runs `black`, `isort`, `pylint`, and a package build on every push/PR via `.github/workflows/ci.yml`.
+
+The repo also includes an opt-in pre-push git hook at `.githooks/pre-push` that runs the same checks locally before every push, auto-installing any missing tools. Enable it once per clone:
+
+```bash
 git config core.hooksPath .githooks
 ```
 
-To verify it's active:
+Verify it's active:
+
 ```bash
 git config core.hooksPath
 # Should output: .githooks
 ```
 
-After that, every `git push` will automatically verify formatting, imports, linting, and build — and abort the push if any check fails.
+To skip the hook for a specific push (e.g. work-in-progress):
 
-To skip the hook for a specific push (e.g., work-in-progress):
 ```bash
 git push --no-verify
 ```
 
-### See all options
+---
 
-```bash
-$ myguru --help
-$ myguru learning --help
-$ myguru guru --help
-```
+## Known Limitations
+
+- **Single source directory.** Only one `--src` path per database. Indexing multiple unrelated directories requires separate databases.
+- **No chunking configuration via CLI.** Chunk size and overlap use LlamaIndex defaults (1024 tokens / 20-token overlap). Changing them requires editing `rag_builder.py`.
+- **No test suite.** There are no automated tests. Correctness is verified manually.
+- **No type hints.** Function signatures lack Python type annotations; static type checkers cannot analyze this code.
+- **LLM parameters hardcoded.** `temperature`, `request_timeout`, `similarity_top_k`, and the system prompt cannot be changed without editing source files.
+- **`learning -u` requires the hash file.** If `project_hashes.json` is lost or deleted, a full re-index (`learning -c` on a fresh DB) is required.

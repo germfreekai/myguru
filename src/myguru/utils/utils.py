@@ -18,13 +18,7 @@ def read_hash_file(hash_file):
     try:
         with open(hash_file, "r", encoding="utf-8") as pfile:
             return json.load(pfile)
-    except (
-        json.JSONDecodeError,
-        FileExistsError,
-        FileNotFoundError,
-        PermissionError,
-        Exception,
-    ) as err:
+    except Exception as err:
         raise err
 
 
@@ -37,9 +31,15 @@ def write_hash_file(hash_file, hashes):
     Arguments:
         - hash_file (str): Hash file path.
         - hashes    (dict): Files hashes dictionary.
+
+    Raises:
+        - OSError: If the file cannot be opened or written.
     """
-    with open(hash_file, "w", encoding="utf-8") as pfile:
-        json.dump(hashes, pfile, indent=2)
+    try:
+        with open(hash_file, "w", encoding="utf-8") as pfile:
+            json.dump(hashes, pfile, indent=2)
+    except OSError as err:
+        raise OSError(f"Failed to write hash file '{hash_file}': {err}") from err
 
 
 def md5(file_path):

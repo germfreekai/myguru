@@ -1,135 +1,108 @@
 """
 RAG Query.
 
-Query RAG agent in conversation/user mode.
+Query RAG agent in conversation/user mode. Uses composition: receives an
+initialized RAGBase (or RAGBuilder) and an index rather than re-running
+the shared initialization path.
 """
 
 import json
 import sys
-import time
-import urllib.request
-
-from llama_index.core.retrievers import VectorIndexRetriever
-
-from myguru.cls.rag_base import RAGBase
 
 
-class RAGQuery(RAGBase):
-    """RAG Query Class."""
+class RAGQuery:
+    """
+    RAG Query Class.
 
-    def __init__(self, tool_name, src_path, db_path, llm, cle, base_url, index):
+    Wraps a query engine built from an existing VectorStoreIndex.
+    Depends on an already-initialized RAGBase for the prompt template
+    and logger; does not re-run Ollama or ChromaDB initialization.
+    """
+
+    def __init__(self, base, index):
         """
         Init RAG Query Class.
 
         Arguments:
-            - tool_name (str): Tool's name
-            - src_path  (str): Src path.
-            - db_path   (str): ChromaDB path.
-            - llm       (str): LLM model for code analysis and generation.
-            - cle       (str): Embedding model.
-            - base_url  (str): Ollama base url. url:port
-            - index     (VectorStoreIndex): Index object.
+            - base  (RAGBase): An initialized RAGBase (or RAGBuilder) instance.
+            - index (VectorStoreIndex): Pre-loaded vector index.
         """
-        super().__init__(tool_name, src_path, db_path, llm, cle, base_url)
-
+        self._logger = base.LOGGER
+        self.qa_prompt = base.qa_prompt
         self.index = index
 
-    def _format_context(self, nodes):
-        """Format retrieved nodes into a single context string."""
-        sections = []
-        for i, node in enumerate(nodes, 1):
-            path = node.metadata.get("file_path", "N/A")
-            content = node.get_content().strip()
-            sections.append(f"--- chunk {i} ({path}) ---\n{content}")
-        return "\n\n".join(sections)
-
-    def _stream_ollama(self, prompt):
-        """Stream completion directly from Ollama API."""
-        system_prompt = self.SYSTEM_PROMPT.format(tool_name=self.tool_name)
-
-        payload = json.dumps(
-            {
-                "model": self.llm,
-                "system": system_prompt,
-                "prompt": prompt,
-                "stream": True,
-                "options": {
-                    "temperature": 0.0,
-                    "num_thread": 24,
-                },
-            }
-        ).encode()
-
-        req = urllib.request.Request(
-            f"{self.base_url}/api/generate",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-        )
-
-        with urllib.request.urlopen(req, timeout=600) as resp:
-            for line in resp:
-                if not line:
-                    continue
-                data = json.loads(line)
-                if not data.get("done", False):
-                    yield data.get("response", "")
-                else:
-                    yield "__DONE__"
-
-    def run_query(self, debug):
+    def run_query(self, debug, query_text=None, json_output=False):
         """
         Execute RAG agent's query.
 
+        When query_text is provided, runs a single non-interactive query and
+        returns. Without query_text, runs an interactive REPL until the user
+        types 'quit' or 'exit'.
+
         Arguments:
-            - debug (bool): Flag to show chunk mnessages.
+            - debug       (bool): Flag to show chunk messages in REPL mode.
+            - query_text  (str):  If set, run one query and exit instead of the REPL.
+            - json_output (bool): If True with query_text, print a JSON object to stdout.
+
+        Raises:
+            - SystemExit(1): On unrecoverable error.
         """
-        self.LOGGER.info("Starting Query operation ...")
+        self._logger.info("Starting Query operation ...")
 
         try:
-            retriever = VectorIndexRetriever(index=self.index, similarity_top_k=5)
+            query_engine = self.index.as_query_engine(
+                similarity_top_k=5,
+                text_qa_template=self.qa_prompt,
+                response_mode="compact",
+                response_synthesizer_mode="compact",
+            )
+
+            if query_text is not None:
+                response = query_engine.query(query_text)
+
+                if json_output:
+                    sources = []
+                    for node in response.source_nodes:
+                        sources.append(
+                            {
+                                "file_path": node.metadata.get("file_path", ""),
+                                "score": (
+                                    round(float(node.score), 4) if node.score is not None else None
+                                ),
+                                "content": node.get_content().strip(),
+                            }
+                        )
+                    payload = {
+                        "query": query_text,
+                        "response": str(response),
+                        "sources": sources,
+                    }
+                    print(json.dumps(payload, indent=2))
+                else:
+                    print(str(response))
+                return
+
+            self._logger.info("Query engine mode ...")
 
             while True:
                 user_prompt = input("[user] > ")
                 if user_prompt.lower() in ["quit", "exit"]:
-                    self.LOGGER.info("Exiting user's session ...")
+                    self._logger.info("Exiting user's session ...")
                     break
 
-                self.LOGGER.info("Retrieving context from ChromaDB ...")
-                start = time.time()
-                nodes = retriever.retrieve(user_prompt)
-                elapsed = time.time() - start
-                self.LOGGER.info(f"Retrieved {len(nodes)} context chunks in {elapsed:.1f}s")
+                response = query_engine.query(user_prompt)
 
-                context = self._format_context(nodes)
-                formatted_prompt = self.qa_prompt.format(context_str=context, query_str=user_prompt)
-
-                self.LOGGER.info(
-                    f"Sending to LLM ({self.llm}) at {self.base_url} (timeout 300s) ..."
-                )
-                start = time.time()
-                sys.stdout.write("[myguru] > ")
-                sys.stdout.flush()
-                for token in self._stream_ollama(formatted_prompt):
-                    if token == "__DONE__":
-                        break
-                    sys.stdout.write(token)
-                    sys.stdout.flush()
-                elapsed = time.time() - start
-                print()
+                print(f"[myguru] > {response}")
                 print("_" * 25)
-                self.LOGGER.info(f"LLM responded in {elapsed:.1f}s")
 
                 if debug:
-                    self.LOGGER.warning("Retrieved context chunks ...")
-                    for i, node in enumerate(nodes):
+                    self._logger.warning("Retrieved context chunks ...")
+                    for i, node in enumerate(response.source_nodes):
                         print(f"Chunk {i+1} (Score: {node.score:.4f}):")
                         print(f"Source: {node.metadata.get('file_path', 'N/A')}")
                         print(node.get_content().strip())
                         print("--------------------------------")
-        except (TimeoutError, Exception) as err:
-            self.LOGGER.error(f"Query failed: {err}")
-            self.LOGGER.error(
-                f"Check if Ollama is reachable at {self.base_url}"
-                f" and the model '{self.llm}' is pulled"
-            )
+
+        except Exception as err:
+            self._logger.error(err)
             sys.exit(1)

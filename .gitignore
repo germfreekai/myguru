@@ -70,6 +70,7 @@ Thumbs.db
 
 # Project specific
 myguru-db/
+project_hashes.json
 
 # Remote ChromaDB local persist directory
 .chroma_*/
